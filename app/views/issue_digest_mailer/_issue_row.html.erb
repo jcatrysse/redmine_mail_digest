@@ -1,0 +1,10 @@
+<tr>
+  <td><a href="<%= digest_issue_url(issue) %>">#<%= issue.id %></a></td>
+  <td><%= issue.tracker&.name %></td>
+  <td><a href="<%= digest_issue_url(issue) %>"><%= issue.subject %></a></td>
+  <td><%= issue.status&.name %></td>
+  <td class="<%= priority_css_class(issue) %>"><%= issue.priority&.name %></td>
+  <td><%= format_assignee(issue) %></td>
+  <td class="<%= 'overdue' if overdue?(issue) %>"><%= format_due_date(issue) %></td>
+  <td><%= issue.updated_on ? I18n.l(issue.updated_on.to_date) : '' %></td>
+</tr>

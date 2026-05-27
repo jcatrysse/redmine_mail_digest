@@ -1,0 +1,79 @@
+<p class="back-url">
+  <%= link_to "← #{l(:label_issue_digest_rules)}", settings_project_path(@project, tab: 'digest_rules') %>
+</p>
+
+<div class="contextual">
+  <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
+    <%= link_to l(:button_edit),
+                edit_project_issue_digest_rule_path(@project, @rule),
+                class: 'icon icon-edit' %>
+    <% if @rule.active %>
+      <%= button_to l(:button_disable),
+                    disable_project_issue_digest_rule_path(@project, @rule),
+                    method: :post, class: 'icon icon-lock' %>
+    <% else %>
+      <%= button_to l(:button_enable),
+                    enable_project_issue_digest_rule_path(@project, @rule),
+                    method: :post, class: 'icon icon-unlock' %>
+    <% end %>
+    <%= link_to l(:button_delete),
+                project_issue_digest_rule_path(@project, @rule),
+                method: :delete,
+                data: { confirm: l(:text_digest_rule_delete_confirm, name: @rule.name) },
+                class: 'icon icon-del' %>
+  <% end %>
+</div>
+
+<h2><%= h(@rule.name) %> <%= digest_rule_status_badge(@rule) %></h2>
+
+<% if @rule.query_id.present? && @rule.query.nil? %>
+  <div class="flash warning">
+    <%= l(:warning_query_missing, id: @rule.query_id) %>
+    <%= link_to l(:button_edit), edit_project_issue_digest_rule_path(@project, @rule) %>
+  </div>
+<% end %>
+
+<div class="box">
+  <p><strong><%= l(:field_schedule_type) %>:</strong> <%= schedule_description(@rule) %></p>
+  <p><strong><%= l(:field_recipient_modes) %>:</strong> <%= recipient_modes_description(@rule) %></p>
+  <p><strong><%= l(:label_filters) %>:</strong> <%= filter_summary(@rule) %></p>
+  <% if (ps = personalization_summary(@rule)) %>
+    <p><strong><%= l(:label_personalization) %>:</strong> <%= ps %></p>
+  <% end %>
+  <% if @rule.query_id.present? %>
+    <p>
+      <strong><%= l(:field_query_id) %>:</strong>
+      <% if @rule.query %>
+        <%= @rule.query.name %>
+      <% else %>
+        <span class="error"><%= l(:warning_query_missing_short, id: @rule.query_id) %></span>
+      <% end %>
+    </p>
+  <% end %>
+  <% if @rule.start_on || @rule.end_on %>
+    <p>
+      <% if @rule.start_on %><strong><%= l(:field_start_on) %>:</strong> <%= format_date(@rule.start_on) %><% end %>
+      <% if @rule.end_on %><strong><%= l(:field_end_on) %>:</strong> <%= format_date(@rule.end_on) %><% end %>
+    </p>
+  <% end %>
+  <p><strong><%= l(:field_group_by) %>:</strong> <%= l(:"group_by_#{@rule.group_by}") %></p>
+  <% if @rule.last_success_at %>
+    <p><strong><%= l(:field_last_success_at) %>:</strong> <%= format_time(@rule.last_success_at) %></p>
+  <% end %>
+  <% if @rule.email_intro.present? %>
+    <p><strong><%= l(:field_email_intro) %>:</strong></p>
+    <div class="wiki"><%= textilizable @rule.email_intro %></div>
+  <% end %>
+</div>
+
+<h3><%= l(:label_run_history) %></h3>
+
+<% loaded_runs = @runs.to_a %>
+<% if @total_run_count > loaded_runs.size %>
+  <p class="info">
+    <%= l(:text_run_history_truncated, shown: loaded_runs.size, total: @total_run_count) %>
+    <%= link_to l(:label_show_all_runs, max: IssueDigestRulesController::SHOW_ALL_LIMIT),
+                project_issue_digest_rule_path(@project, @rule, show_all: 1) %>
+  </p>
+<% end %>
+<%= render partial: 'run_history', locals: { runs: loaded_runs } %>

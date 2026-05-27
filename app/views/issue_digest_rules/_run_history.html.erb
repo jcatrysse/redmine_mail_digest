@@ -1,0 +1,35 @@
+<% if runs.blank? %>
+  <p class="nodata"><%= l(:text_no_runs_yet) %></p>
+<% else %>
+  <table class="list">
+    <thead>
+      <tr>
+        <th scope="col"><%= l(:label_run_history_started_at) %></th>
+        <th scope="col"><%= l(:label_run_history_finished_at) %></th>
+        <th scope="col"><%= l(:label_run_history_trigger) %></th>
+        <th scope="col"><%= l(:label_run_history_status) %></th>
+        <th scope="col"><%= l(:label_run_history_recipients) %></th>
+        <th scope="col"><%= l(:label_run_history_emails_sent) %></th>
+        <th scope="col"><%= l(:label_run_history_emails_failed) %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% runs.each do |run| %>
+        <tr class="<%= cycle('odd', 'even') %>">
+          <td><%= format_time(run.started_at) %></td>
+          <td><%= run.finished_at ? format_time(run.finished_at) : '—' %></td>
+          <td><%= l(:"run_trigger_#{run.trigger}", default: run.trigger.to_s) %></td>
+          <td>
+            <%= format_run_status(run) %>
+            <% if run.warning_message.present? %>
+              <br><small class="warning"><%= h run.warning_message.truncate(120) %></small>
+            <% end %>
+          </td>
+          <td><%= run.recipients_count %></td>
+          <td><%= run.emails_sent_count %></td>
+          <td><%= run.emails_failed_count %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

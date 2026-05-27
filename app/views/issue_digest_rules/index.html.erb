@@ -1,0 +1,33 @@
+<div class="contextual">
+  <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
+    <%= link_to l(:label_new_issue_digest_rule),
+                new_project_issue_digest_rule_path(@project),
+                class: 'icon icon-add' %>
+  <% end %>
+</div>
+
+<h2><%= l(:label_issue_digest_rules) %></h2>
+
+<% if @rules.empty? %>
+  <p class="nodata"><%= l(:text_no_digest_rules) %></p>
+<% else %>
+  <table class="list">
+    <thead>
+      <tr>
+        <th scope="col"><%= l(:field_name) %></th>
+        <th scope="col"><%= l(:field_schedule_type) %></th>
+        <th scope="col"><%= l(:field_recipient_modes) %></th>
+        <th scope="col"><%= l(:field_status) %></th>
+        <th scope="col"><%= l(:label_run_history) %></th>
+        <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
+          <th scope="col"></th>
+        <% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% @rules.each do |rule| %>
+        <%= render partial: 'rule_row', locals: { rule: rule, latest_run: @latest_runs[rule.id] } %>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

@@ -1,0 +1,79 @@
+<div id="digest-rules-settings">
+  <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
+    <p>
+      <%= link_to l(:label_new_issue_digest_rule),
+                  new_project_issue_digest_rule_path(@project),
+                  class: 'icon icon-add' %>
+    </p>
+  <% end %>
+
+  <%# Two queries: one for rules, one for the single latest run per rule %>
+  <% rules = IssueDigestRule.where(project_id: @project.id).order(:name) %>
+  <% rule_ids = rules.map(&:id) %>
+  <% latest_runs = if rule_ids.any?
+       max_ids = IssueDigestRun
+         .where(issue_digest_rule_id: rule_ids)
+         .group(:issue_digest_rule_id)
+         .maximum(:id)
+         .values
+       IssueDigestRun.where(id: max_ids).index_by(&:issue_digest_rule_id)
+     else
+       {}
+     end %>
+
+  <% if rules.empty? %>
+    <p class="nodata"><%= l(:text_no_digest_rules) %></p>
+  <% else %>
+    <table class="list">
+      <thead>
+        <tr>
+          <th scope="col"><%= l(:field_name) %></th>
+          <th scope="col"><%= l(:field_schedule_type) %></th>
+          <th scope="col"><%= l(:field_recipient_modes) %></th>
+          <th scope="col"><%= l(:field_status) %></th>
+          <th scope="col"><%= l(:label_run_history_last) %></th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rules.each_with_index do |rule, i| %>
+          <% last = latest_runs[rule.id] %>
+          <tr class="<%= i.even? ? 'odd' : 'even' %>">
+            <td>
+              <%= link_to rule.name, project_issue_digest_rule_path(@project, rule) %>
+            </td>
+            <td><%= l(:"schedule_type_#{rule.schedule_type}") %></td>
+            <td><%= recipient_modes_description(rule) %></td>
+            <td>
+              <% status = rule.status_label %>
+              <span class="badge"><%= l(:"status_#{status}") %></span>
+            </td>
+            <td>
+              <% if last %>
+                <%= format_time(last.started_at) %> &mdash;
+                <span class="badge"><%= l(:"run_status_#{last.status}") %></span>
+              <% else %>
+                <span class="nodata"><%= l(:text_no_runs_yet) %></span>
+              <% end %>
+            </td>
+            <td class="buttons">
+              <%= link_to l(:label_run_history),
+                          project_issue_digest_rule_path(@project, rule),
+                          class: 'icon icon-time' %>
+              <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
+                <%= link_to l(:button_edit),
+                            edit_project_issue_digest_rule_path(@project, rule),
+                            class: 'icon icon-edit' %>
+                <%= link_to l(:button_delete),
+                            project_issue_digest_rule_path(@project, rule),
+                            method: :delete,
+                            data: { confirm: l(:text_digest_rule_delete_confirm, name: rule.name) },
+                            class: 'icon icon-del' %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</div>

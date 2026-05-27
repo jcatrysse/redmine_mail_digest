@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; color: #222; }
+    h2 { margin: 0 0 4px 0; }
+    h3 { margin-top: 24px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+    th { background: #f5f5f5; text-align: left; padding: 6px 8px; border-bottom: 2px solid #ddd; font-size: 13px; }
+    td { padding: 6px 8px; border-bottom: 1px solid #e0e0e0; font-size: 13px; vertical-align: top; }
+    .priority-high { color: #cc0000; }
+    .priority-urgent { color: #cc0000; font-weight: bold; }
+    .priority-immediate { color: #990000; font-weight: bold; }
+    .overdue { color: #cc0000; font-weight: bold; }
+    .email-header { margin-bottom: 16px; }
+    .email-intro { margin: 12px 0; padding: 8px 12px; background: #fafafa; border-left: 3px solid #4a90d9; }
+    .email-footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 12px; color: #666; }
+    .summary { margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="email-header">
+    <h2><%= I18n.t('redmine_digest.mailer.heading', project: @project.name, rule_name: @rule.name) %></h2>
+    <p><%= I18n.t('redmine_digest.mailer.date_label') %>: <%= @date.strftime('%Y-%m-%d') %></p>
+  </div>
+
+  <% if @rule.email_intro.present? %>
+    <div class="email-intro wiki">
+      <%= textilizable(@rule.email_intro) %>
+    </div>
+  <% end %>
+
+  <% if @issues_count.zero? %>
+    <p><strong><%= I18n.t('redmine_digest.mailer.no_issues') %></strong></p>
+  <% else %>
+    <p class="summary"><strong><%= I18n.t('redmine_digest.mailer.issues_summary', count: @issues_count) %></strong></p>
+
+    <% if @grouped_issues.is_a?(Hash) %>
+      <% @grouped_issues.each do |group_name, group_issues| %>
+        <h3><%= group_name %> (<%= group_issues.size %>)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th><%= I18n.t('redmine_digest.mailer.column_id') %></th>
+              <th><%= I18n.t('redmine_digest.mailer.column_tracker') %></th>
+              <th><%= I18n.t('redmine_digest.mailer.column_subject') %></th>
+              <th><%= I18n.t('redmine_digest.mailer.column_status') %></th>
+              <th><%= I18n.t('redmine_digest.mailer.column_priority') %></th>
+              <th><%= I18n.t('redmine_digest.mailer.column_assignee') %></th>
+              <th><%= I18n.t('redmine_digest.mailer.column_due_date') %></th>
+              <th><%= I18n.t('redmine_digest.mailer.column_updated') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% group_issues.each do |issue| %>
+              <%= render partial: 'issue_row', locals: { issue: issue } %>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    <% else %>
+      <table>
+        <thead>
+          <tr>
+            <th><%= I18n.t('redmine_digest.mailer.column_id') %></th>
+            <th><%= I18n.t('redmine_digest.mailer.column_tracker') %></th>
+            <th><%= I18n.t('redmine_digest.mailer.column_subject') %></th>
+            <th><%= I18n.t('redmine_digest.mailer.column_status') %></th>
+            <th><%= I18n.t('redmine_digest.mailer.column_priority') %></th>
+            <th><%= I18n.t('redmine_digest.mailer.column_assignee') %></th>
+            <th><%= I18n.t('redmine_digest.mailer.column_due_date') %></th>
+            <th><%= I18n.t('redmine_digest.mailer.column_updated') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @issues.each do |issue| %>
+            <%= render partial: 'issue_row', locals: { issue: issue } %>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  <% end %>
+
+  <div class="email-footer">
+    <p>
+      <%= I18n.t('redmine_digest.mailer.footer_member_notice', project: @project.name) %><br>
+      <a href="<%= digest_settings_url %>"><%= I18n.t('redmine_digest.mailer.footer_manage_link') %></a><br>
+      <%= I18n.t('redmine_digest.mailer.footer_generated_by') %>
+    </p>
+  </div>
+</body>
+</html>

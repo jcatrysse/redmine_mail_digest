@@ -1,0 +1,347 @@
+<% form_url = rule.new_record? ?
+                project_issue_digest_rules_path(@project) :
+                project_issue_digest_rule_path(@project, rule) %>
+<% form_method = rule.new_record? ? :post : :patch %>
+
+<%# Redmine's labelled_form_for (LabelledFormBuilder, built on form_for) is used
+    instead of form_with so that every field gets a generated id and an
+    associated <label for=...>. Redmine does not enable
+    action_view.form_with_generates_ids, so form_with would emit id-less inputs;
+    that breaks helpers such as wikitoolbar_for, which target a field by id. %>
+<%= labelled_form_for(rule, url: form_url, method: form_method, html: { id: 'digest_rule_form', class: 'tabular' }) do |f| %>
+
+  <% if rule.errors.any? %>
+    <div id="errorExplanation">
+      <ul>
+        <% rule.errors.full_messages.each do |msg| %>
+          <li><%= msg %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <fieldset class="box tabular">
+    <legend><%= l(:label_information) %></legend>
+    <p>
+      <%= f.text_field :name, size: 60, maxlength: 255 %>
+    </p>
+    <p>
+      <%= f.check_box :active %>
+    </p>
+  </fieldset>
+
+  <fieldset class="box tabular">
+    <legend><%= l(:field_schedule_type) %></legend>
+    <p>
+      <%= f.select :schedule_type, schedule_type_options %>
+    </p>
+
+    <div class="schedule-config" data-show-for="weekdays">
+      <p>
+        <label><%= l(:field_days_of_week) %></label>
+        <% (1..7).each do |d| %>
+          <label class="inline">
+            <%= check_box_tag 'issue_digest_rule[schedule_config][days][]',
+                              d,
+                              Array(rule.schedule_config && rule.schedule_config['days']).map(&:to_i).include?(d) %>
+            <%= day_of_week_name(d) %>
+          </label>
+        <% end %>
+      </p>
+    </div>
+
+    <div class="schedule-config" data-show-for="weekly">
+      <p>
+        <label for="issue_digest_rule_schedule_config_day_weekly"><%= l(:field_day_of_week) %></label>
+        <%= select_tag 'issue_digest_rule[schedule_config][day]',
+                       options_for_select(day_of_week_options, rule.schedule_config && rule.schedule_config['day']),
+                       id: 'issue_digest_rule_schedule_config_day_weekly' %>
+      </p>
+    </div>
+
+    <div class="schedule-config" data-show-for="monthly_date">
+      <p>
+        <label for="issue_digest_rule_schedule_config_day_monthly"><%= l(:field_day_of_month) %></label>
+        <%= select_tag 'issue_digest_rule[schedule_config][day]',
+                       options_for_select((1..28).map { |i| [i, i] }, rule.schedule_config && rule.schedule_config['day']),
+                       id: 'issue_digest_rule_schedule_config_day_monthly' %>
+      </p>
+    </div>
+
+    <div class="schedule-config" data-show-for="interval_days">
+      <p>
+        <label for="issue_digest_rule_schedule_config_every_days"><%= l(:field_interval_every_days) %></label>
+        <%= number_field_tag 'issue_digest_rule[schedule_config][every]',
+                             (rule.schedule_config && rule.schedule_config['every']) || 1,
+                             min: 1, max: 365,
+                             id: 'issue_digest_rule_schedule_config_every_days' %>
+      </p>
+    </div>
+
+    <div class="schedule-config" data-show-for="interval_weeks">
+      <p>
+        <label for="issue_digest_rule_schedule_config_every_weeks"><%= l(:field_interval_every_weeks) %></label>
+        <%= number_field_tag 'issue_digest_rule[schedule_config][every]',
+                             (rule.schedule_config && rule.schedule_config['every']) || 1,
+                             min: 1, max: 52,
+                             id: 'issue_digest_rule_schedule_config_every_weeks' %>
+      </p>
+    </div>
+
+    <%# Sub-daily types share one config block; schedule_type drives the label only %>
+    <div class="schedule-config" data-show-for="interval_hours interval_minutes">
+      <p id="sub-daily-every-label">
+        <label for="issue_digest_rule_schedule_config_every_subdaily"><span class="sub-daily-unit-label"></span></label>
+        <%= number_field_tag 'issue_digest_rule[schedule_config][every]',
+                             (rule.schedule_config && rule.schedule_config['every']) || 1,
+                             min: 1, max: 1440,
+                             id: 'issue_digest_rule_schedule_config_every_subdaily' %>
+      </p>
+      <p>
+        <label><%= l(:field_interval_time_window) %></label>
+        <%= text_field_tag 'issue_digest_rule[schedule_config][from]',
+                           (rule.schedule_config && rule.schedule_config['from']),
+                           placeholder: '08:00', size: 5, maxlength: 5,
+                           id: 'issue_digest_rule_schedule_config_from' %>
+        &ndash;
+        <%= text_field_tag 'issue_digest_rule[schedule_config][to]',
+                           (rule.schedule_config && rule.schedule_config['to']),
+                           placeholder: '18:00', size: 5, maxlength: 5,
+                           id: 'issue_digest_rule_schedule_config_to' %>
+        <em class="info"><%= l(:hint_interval_time_window) %></em>
+      </p>
+      <p>
+        <label><%= l(:field_days_of_week) %></label>
+        <% (1..7).each do |d| %>
+          <label class="inline">
+            <%= check_box_tag 'issue_digest_rule[schedule_config][days][]',
+                              d,
+                              Array(rule.schedule_config && rule.schedule_config['days']).map(&:to_i).include?(d) %>
+            <%= day_of_week_name(d) %>
+          </label>
+        <% end %>
+        <em class="info"><%= l(:hint_interval_days_filter) %></em>
+      </p>
+      <p class="description"><%= l(:hint_subdaily_cron) %></p>
+    </div>
+
+    <%# Timezone is always visible (used by all schedule types for send-time and time-window interpretation) %>
+    <p>
+      <%= f.select :timezone, available_timezones, include_blank: false %>
+      <em class="info"><%= l(:hint_timezone) %></em>
+    </p>
+
+    <div class="schedule-send-time">
+      <p>
+        <%= f.time_field :send_time %>
+        <em class="info"><%= l(:hint_send_time) %></em>
+      </p>
+    </div>
+
+    <p>
+      <%= f.date_field :start_on %>
+    </p>
+    <p>
+      <%= f.date_field :end_on %>
+    </p>
+
+    <div class="schedule-grace-window">
+      <p>
+        <%= f.number_field :grace_window_hours, min: 0, max: 48 %>
+        <em class="info"><%= l(:hint_grace_window) %></em>
+      </p>
+    </div>
+
+    <div class="business-days">
+      <p>
+        <%= f.check_box :business_days_only %>
+      </p>
+      <p>
+        <%= f.select :non_business_day_behavior, non_business_day_behavior_options %>
+      </p>
+    </div>
+
+    <p class="description"><%= l(:hint_schedule) %></p>
+  </fieldset>
+
+  <fieldset class="box tabular">
+    <legend><%= l(:label_filters) %></legend>
+    <% if rule.query_id.present? && rule.query.nil? %>
+      <p class="flash warning"><%= l(:warning_query_missing, id: rule.query_id) %></p>
+    <% end %>
+    <p>
+      <%= f.select :query_id,
+                   available_queries_for_project(@project).map { |q| [query_dropdown_label(q), q.id] },
+                   include_blank: true %>
+      <em class="info"><%= l(:hint_query) %></em>
+    </p>
+    <p>
+      <%= f.check_box :include_open %>
+    </p>
+    <p>
+      <%= f.check_box :include_closed %>
+    </p>
+    <p>
+      <%= f.check_box :include_overdue %>
+      <%= f.number_field :overdue_min_days, min: 1, max: 365, placeholder: l(:placeholder_overdue_min_days), no_label: true %>
+      <em class="info"><%= l(:hint_overdue_min_days) %></em>
+    </p>
+    <p>
+      <%= f.check_box :include_due_soon %>
+      <%= f.number_field :due_soon_days, min: 1, max: 365, no_label: true %>
+    </p>
+    <p>
+      <%= f.check_box :include_recently_updated %>
+      <%= f.number_field :recently_updated_days, min: 1, max: 365, no_label: true %>
+    </p>
+    <p>
+      <%= f.check_box :include_recently_created %>
+      <%= f.number_field :recently_created_days, min: 1, max: 365, no_label: true %>
+    </p>
+    <p>
+      <%= f.check_box :only_since_last_run %>
+      <em class="info"><%= l(:hint_only_since_last_run) %></em>
+    </p>
+    <p>
+      <%= f.check_box :include_subprojects %>
+    </p>
+    <p class="description"><%= l(:hint_filters) %></p>
+  </fieldset>
+
+  <fieldset class="box tabular">
+    <legend><%= l(:field_recipient_modes) %></legend>
+    <% recipient_modes = Array(rule.recipient_modes) %>
+    <% [['project_members', l(:recipient_mode_project_members)],
+        ['assignees',       l(:recipient_mode_assignees)],
+        ['authors',         l(:recipient_mode_authors)],
+        ['watchers',        l(:recipient_mode_watchers)]].each do |value, label| %>
+      <p>
+        <label class="inline">
+          <%= check_box_tag 'issue_digest_rule[recipient_modes][]', value, recipient_modes.include?(value) %>
+          <%= label %>
+        </label>
+      </p>
+    <% end %>
+    <%# Specific project members — rendered like Redmine's native filter value
+        multiselect: a single dropdown when 0/1 users are chosen, a sized
+        multiple-select (no blank option) when several are chosen, plus the
+        standard +/- toggle. Avoids the old "multiple + size=1" rendering. %>
+    <% specific_user_ids   = Array(rule.recipient_modes).grep(/\Auser:\d+\z/).map { |m| m.sub('user:', '').to_i } %>
+    <% members             = project_members_for_digest(@project) %>
+    <% if members.any? %>
+      <% is_multiple        = specific_user_ids.size > 1 %>
+      <% user_options       = members.map { |u| [u.name, "user:#{u.id}"] }.sort_by { |name, _| name.downcase } %>
+      <% selected_user_keys = specific_user_ids.map { |id| "user:#{id}" } %>
+      <p>
+        <label for="digest-users-select"><%= l(:recipient_mode_users) %></label>
+        <%= select_tag 'issue_digest_rule[recipient_modes][]',
+                       options_for_select(user_options, selected_user_keys),
+                       multiple: is_multiple,
+                       include_blank: !is_multiple,
+                       size: (is_multiple ? [members.size, 10].min : 1),
+                       id: 'digest-users-select',
+                       class: 'value' %>
+        <%= digest_multiselect_toggle(is_multiple) %>
+      </p>
+    <% end %>
+
+    <%# Email address lookup — only rendered when the admin has enabled external email recipients %>
+    <% if external_recipients_allowed? %>
+      <p>
+        <label for="issue_digest_rule_recipient_email_addresses"><%= l(:field_recipient_email_addresses) %></label>
+        <% existing_emails = Array(rule.recipient_modes).grep(/\Aemail:/).map { |m| m.sub(/\Aemail:/, '') } %>
+        <%= text_area_tag 'issue_digest_rule[recipient_email_addresses]',
+                          existing_emails.join("\n"),
+                          rows: 3, cols: 50,
+                          id: 'issue_digest_rule_recipient_email_addresses',
+                          placeholder: "user@example.com\nother@example.com" %>
+        <em class="info"><%= l(:hint_recipient_email_addresses) %></em>
+      </p>
+    <% end %>
+
+    <p class="description"><%= l(:hint_recipients) %></p>
+
+    <p>
+      <%= f.check_box :filter_assigned_to_recipient %>
+    </p>
+    <p>
+      <%= f.check_box :filter_watched_by_recipient %>
+    </p>
+    <p>
+      <%= f.check_box :filter_authored_by_recipient %>
+    </p>
+  </fieldset>
+
+  <fieldset class="box tabular">
+    <legend><%= l(:field_group_by) %></legend>
+    <p>
+      <%= f.select :group_by, group_by_options %>
+    </p>
+    <p>
+      <%= f.check_box :send_empty %>
+      <em class="info"><%= l(:hint_send_empty) %></em>
+    </p>
+    <p>
+      <%= f.text_field :email_subject, size: 60 %>
+      <em class="info"><%= l(:hint_email_subject) %></em>
+    </p>
+    <p>
+      <%= f.text_area :email_intro, rows: 4, cols: 60, maxlength: 2000, class: 'wiki-edit' %>
+      <%= wikitoolbar_for 'issue_digest_rule_email_intro' %>
+      <em class="info"><%= l(:hint_email_intro) %></em>
+    </p>
+  </fieldset>
+
+  <p>
+    <%= submit_tag l(:button_save) %>
+    <%= link_to l(:button_cancel), settings_project_path(@project, tab: 'digest_rules') %>
+  </p>
+<% end %>
+
+<%= javascript_tag nonce: true do %>
+  (function() {
+    var sel = document.getElementById('issue_digest_rule_schedule_type');
+    if (!sel) return;
+
+    var blocks = document.querySelectorAll('.schedule-config');
+    var subDailyTypes = ['interval_hours', 'interval_minutes'];
+
+    var subDailyLabels = {
+      'interval_hours':   '<%= j l(:field_interval_every_hours) %>',
+      'interval_minutes': '<%= j l(:field_interval_every_minutes) %>'
+    };
+
+    function update() {
+      var value = sel.value;
+      var isManual   = (value === 'manual');
+      var isSubDaily = (subDailyTypes.indexOf(value) !== -1);
+
+      // Show the matching schedule-config block; support space-separated multi-value in data-show-for
+      blocks.forEach(function(el) {
+        var showFor = (el.getAttribute('data-show-for') || '').split(/\s+/);
+        el.style.display = (showFor.indexOf(value) !== -1) ? '' : 'none';
+      });
+
+      // Update sub-daily "every N" label to reflect hours vs minutes
+      var unitLabel = document.querySelector('.sub-daily-unit-label');
+      if (unitLabel && subDailyLabels[value]) {
+        unitLabel.textContent = subDailyLabels[value];
+      }
+
+      // send_time only applies to non-manual, non-sub-daily schedules
+      var sendTime = document.querySelector('.schedule-send-time');
+      if (sendTime) sendTime.style.display = (isManual || isSubDaily) ? 'none' : '';
+
+      // Grace window only applies to non-manual, non-sub-daily schedules
+      var graceWindow = document.querySelector('.schedule-grace-window');
+      if (graceWindow) graceWindow.style.display = (isManual || isSubDaily) ? 'none' : '';
+
+      // Business-days only applies to daily/interval types (not weekdays, manual, or sub-daily)
+      var biz = document.querySelector('.business-days');
+      if (biz) biz.style.display = (value === 'weekdays' || isManual || isSubDaily) ? 'none' : '';
+    }
+
+    sel.addEventListener('change', update);
+    update();
+  })();
+<% end %>

@@ -1,0 +1,45 @@
+==================================================
+<%= @project.name %> — <%= @rule.name %>
+<%= @date.strftime('%A, %d %B %Y') %>
+==================================================
+
+<%# Plain-text part: emit the intro as its formatting source, mirroring how
+    Redmine renders rich text in its own text/plain emails. %>
+<% if @rule.email_intro.present? %>
+<%= @rule.email_intro %>
+
+<% end %>
+<% if @issues_count.zero? %>
+<%= I18n.t('redmine_digest.mailer.no_issues') %>
+
+<% else %>
+<%= I18n.t('redmine_digest.mailer.issues_summary', count: @issues_count) %>
+==================================================
+
+<% if @grouped_issues.is_a?(Hash) %>
+<% @grouped_issues.each do |group_name, group_issues| %>
+--- <%= group_name %> (<%= group_issues.size %>) ---
+
+<% group_issues.each do |issue| %>
+#<%= issue.id %>  [<%= issue.tracker&.name %>]  <%= issue.subject %>
+      Status: <%= issue.status&.name %>  Priority: <%= issue.priority&.name %>  Assignee: <%= format_assignee(issue) %>
+      Due: <%= format_due_date(issue) %>  Updated: <%= issue.updated_on&.strftime('%Y-%m-%d') %>
+      <%= digest_issue_url(issue) %>
+
+<% end %>
+<% end %>
+<% else %>
+<% @issues.each do |issue| %>
+#<%= issue.id %>  [<%= issue.tracker&.name %>]  <%= issue.subject %>
+      Status: <%= issue.status&.name %>  Priority: <%= issue.priority&.name %>  Assignee: <%= format_assignee(issue) %>
+      Due: <%= format_due_date(issue) %>  Updated: <%= issue.updated_on&.strftime('%Y-%m-%d') %>
+      <%= digest_issue_url(issue) %>
+
+<% end %>
+<% end %>
+<% end %>
+==================================================
+<%= I18n.t('redmine_digest.mailer.footer_member_notice', project: @project.name) %>
+<%= I18n.t('redmine_digest.mailer.footer_manage_link') %>: <%= digest_settings_url %>
+<%= I18n.t('redmine_digest.mailer.footer_generated_by') %>
+==================================================

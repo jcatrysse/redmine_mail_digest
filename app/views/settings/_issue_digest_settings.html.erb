@@ -1,0 +1,37 @@
+<fieldset class="box">
+  <legend><%= l(:label_issue_digest_settings) %></legend>
+
+  <p>
+    <label for="settings_max_issues_per_email">
+      <%= l('redmine_digest.settings.max_issues_per_email') %>
+    </label>
+    <%= number_field_tag 'settings[max_issues_per_email]',
+                          settings['max_issues_per_email'],
+                          id: 'settings_max_issues_per_email',
+                          min: 1, max: 5000 %>
+    <em class="info"><%= l('redmine_digest.settings.hint_max_issues_per_email') %></em>
+  </p>
+
+  <p>
+    <label for="settings_run_history_retention_days">
+      <%= l('redmine_digest.settings.run_history_retention_days') %>
+    </label>
+    <%= number_field_tag 'settings[run_history_retention_days]',
+                          settings['run_history_retention_days'],
+                          id: 'settings_run_history_retention_days',
+                          min: 0 %>
+    <em class="info"><%= l('redmine_digest.settings.hint_retention_days') %></em>
+  </p>
+
+  <p>
+    <label for="settings_allow_external_recipients">
+      <%= l('redmine_digest.settings.allow_external_recipients') %>
+    </label>
+    <%= hidden_field_tag 'settings[allow_external_recipients]', '0' %>
+    <%= check_box_tag 'settings[allow_external_recipients]',
+                      '1',
+                      ActiveModel::Type::Boolean.new.cast(settings['allow_external_recipients']),
+                      id: 'settings_allow_external_recipients' %>
+    <em class="info"><%= l('redmine_digest.settings.allow_external_recipients_note') %></em>
+  </p>
+</fieldset>
