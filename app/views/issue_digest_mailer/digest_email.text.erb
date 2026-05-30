@@ -10,10 +10,10 @@
 
 <% end %>
 <% if @issues_count.zero? %>
-<%= I18n.t('redmine_digest.mailer.no_issues') %>
+<%= I18n.t('redmine_mail_digest.mailer.no_issues') %>
 
 <% else %>
-<%= I18n.t('redmine_digest.mailer.issues_summary', count: @issues_count) %>
+<%= I18n.t('redmine_mail_digest.mailer.issues_summary', count: @issues_count) %>
 ==================================================
 
 <% if @grouped_issues.is_a?(Hash) %>
@@ -39,7 +39,7 @@
 <% end %>
 <% end %>
 ==================================================
-<%= I18n.t('redmine_digest.mailer.footer_member_notice', project: @project.name) %>
-<%= I18n.t('redmine_digest.mailer.footer_manage_link') %>: <%= digest_settings_url %>
-<%= I18n.t('redmine_digest.mailer.footer_generated_by') %>
+<%= I18n.t('redmine_mail_digest.mailer.footer_member_notice', project: @project.name) %>
+<%= I18n.t('redmine_mail_digest.mailer.footer_manage_link') %>: <%= digest_settings_url %>
+<%= I18n.t('redmine_mail_digest.mailer.footer_generated_by') %>
 ==================================================

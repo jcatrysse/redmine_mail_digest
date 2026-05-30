@@ -417,6 +417,43 @@ RSpec.describe IssueDigest::ScheduleEvaluator, type: :service do
         end
       end
     end
+
+    context 'business-day shifts across period boundaries' do
+      it 'runs a monthly last-day occurrence shifted to the following Monday in the next month' do
+        rule = build_rule(
+          schedule_type: 'monthly_last_day',
+          business_days_only: true,
+          non_business_day_behavior: 'next_weekday',
+          grace_window_hours: 24
+        )
+        allow(rule).to receive(:id).and_return(0)
+
+        # 2026-05-31 is Sunday; next_weekday executes on Monday 2026-06-01.
+        travel_to(at('2026-06-01 08:05:00 UTC')) do
+          evaluator = described_class.new(rule)
+          expect(evaluator.due?).to be true
+          expect(evaluator.compute_schedule_key).to eq('0:ML:2026-05')
+        end
+      end
+
+      it 'runs a first-of-month occurrence shifted to the preceding Friday in the prior month' do
+        rule = build_rule(
+          schedule_type: 'monthly_date',
+          schedule_config: { 'day' => 1 },
+          business_days_only: true,
+          non_business_day_behavior: 'previous_weekday',
+          grace_window_hours: 24
+        )
+        allow(rule).to receive(:id).and_return(0)
+
+        # 2026-02-01 is Sunday; previous_weekday executes on Friday 2026-01-30.
+        travel_to(at('2026-01-30 08:05:00 UTC')) do
+          evaluator = described_class.new(rule)
+          expect(evaluator.due?).to be true
+          expect(evaluator.compute_schedule_key).to eq('0:MD:2026-02')
+        end
+      end
+    end
   end
 
   describe '#compute_schedule_key' do

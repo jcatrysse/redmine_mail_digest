@@ -15,16 +15,17 @@ module IssueDigest
   # the planned actions are echoed to STDOUT.
   class DigestSender
     DEFAULT_MAX_ISSUES_PER_EMAIL = 500
-
-    GROUP_BY_OPTIONS = %w[none assignee priority tracker status version category].freeze
+    MIN_MAX_ISSUES_PER_EMAIL = 1
+    MAX_MAX_ISSUES_PER_EMAIL = 5000
 
     attr_reader :rule
 
-    def initialize(rule, dry_run: false, trigger: nil, schedule_key: nil)
+    def initialize(rule, dry_run: false, trigger: nil, schedule_key: nil, emit_stdout: true)
       @rule         = rule
       @dry_run      = dry_run
       @trigger      = (trigger || (dry_run ? :dry_run : :scheduled)).to_s
       @schedule_key = schedule_key
+      @emit_stdout  = emit_stdout
     end
 
     # Executes the full delivery flow.
@@ -42,9 +43,11 @@ module IssueDigest
         # warning can be attached to the run regardless of recipient count.
         query_warning = detect_query_warning
 
-        candidate_resolver = IssueDigest::IssueResolver.new(@rule, user: nil)
-        candidate_scope    = candidate_resolver.base_scope
-        recipients = IssueDigest::RecipientResolver.new(@rule, issues_scope: candidate_scope).resolve
+        # Recipient discovery uses the *filtered* matching scope so that
+        # assignees/authors/watchers modes only resolve users tied to issues the
+        # rule actually matches (not every historical assignee in the project).
+        candidate_scope = IssueDigest::IssueResolver.new(@rule, user: nil).resolve
+        recipients = IssueDigest::RecipientResolver.new(@rule, issues_scope: candidate_scope).recipients
 
         if recipients.empty?
           Rails.logger.warn "[IssueDigest] Rule ##{@rule.id}: no recipients resolved; skipping"
@@ -56,8 +59,8 @@ module IssueDigest
         failed_count  = 0
         total_issues  = 0
 
-        recipients.each do |user|
-          result = deliver_to(user, recorder)
+        recipients.each do |recipient|
+          result = deliver_to(recipient, recorder, query_warning: query_warning)
           case result[:status]
           when :sent
             sent_count   += 1
@@ -75,6 +78,9 @@ module IssueDigest
                         issues_count: total_issues,
                         warning_message: query_warning)
 
+        # last_success_at tracks "last time at least one email was actually delivered",
+        # not "last time the rule ran". Skipped runs (no recipients, or everyone had
+        # zero matching issues) intentionally leave this timestamp unchanged.
         if %w[success partial_failure].include?(final_status) && sent_count.positive?
           begin
             @rule.update_column(:last_success_at, Time.current.utc)
@@ -95,25 +101,46 @@ module IssueDigest
 
     def run_dry
       query_warning   = detect_query_warning
-      candidate_scope = IssueDigest::IssueResolver.new(@rule, user: nil).base_scope
-      recipients      = IssueDigest::RecipientResolver.new(@rule, issues_scope: candidate_scope).resolve
+      candidate_scope = IssueDigest::IssueResolver.new(@rule, user: nil).resolve
+      recipients      = IssueDigest::RecipientResolver.new(@rule, issues_scope: candidate_scope).recipients
 
-      puts "[DRY_RUN] Rule ##{@rule.id} (#{@rule.name}): #{recipients.size} recipients"
-      puts "  [DRY_RUN] WARNING: #{query_warning}" if query_warning.present?
+      # Collect the human-readable lines into summary[:log] so callers (the rake
+      # task CLI *and* the in-UI preview) share one source of truth. The lines
+      # are still echoed to STDOUT to preserve the existing `DRY_RUN=1` output.
+      log = []
+      emit = lambda do |line|
+        puts line if @emit_stdout
+        log << line
+      end
 
-      summary = { rule_id: @rule.id, recipients_count: recipients.size, plans: [], warning_message: query_warning }
+      emit.call "[DRY_RUN] Rule ##{@rule.id} (#{@rule.name}): #{recipients.size} recipients"
+      emit.call "  [DRY_RUN] WARNING: #{query_warning}" if query_warning.present?
 
-      recipients.each do |user|
-        issues = IssueDigest::IssueResolver.new(@rule, user: user).resolve.limit(max_issues_per_email)
+      summary = { rule_id: @rule.id, recipients_count: recipients.size, plans: [],
+                  warning_message: query_warning, log: log }
+
+      recipients.each do |recipient|
+        user = recipient.user
+        # Mirror the real run: when the saved query is unusable every delivery
+        # fails, so the dry-run preview must report FAIL rather than issue counts
+        # computed from the (broader) unfiltered scope.
+        if query_warning.present?
+          emit.call "  [DRY_RUN] Would FAIL user ##{user.id} (saved query unusable; no digest sent)"
+          summary[:plans] << { user_id: user.id, action: :fail, issues_count: 0 }
+          next
+        end
+
+        issues = IssueDigest::IssueResolver.new(@rule, user: user, recipient_modes: recipient.modes)
+                                           .resolve.limit(max_issues_per_email)
         count  = issues.count
 
         if count.zero? && !@rule.send_empty?
-          puts "  [DRY_RUN] Would skip user ##{user.id} (0 issues, send_empty=false)"
+          emit.call "  [DRY_RUN] Would skip user ##{user.id} (0 issues, send_empty=false)"
           summary[:plans] << { user_id: user.id, action: :skip, issues_count: 0 }
           next
         end
 
-        puts "  [DRY_RUN] Would send #{count} issues to user ##{user.id}"
+        emit.call "  [DRY_RUN] Would send #{count} issues to user ##{user.id}"
         summary[:plans] << { user_id: user.id, action: :send, issues_count: count }
       end
 
@@ -121,9 +148,16 @@ module IssueDigest
     end
 
     # Returns a hash {status:, issues_count:} for the per-recipient outcome.
-    def deliver_to(user, recorder)
-      issues = IssueDigest::IssueResolver.new(@rule, user: user).resolve.limit(max_issues_per_email)
-      issues = issues.to_a
+    def deliver_to(recipient, recorder, query_warning: nil)
+      user = recipient.user
+      if query_warning.present?
+        recorder.record_delivery(user, 'failed', issues_count: 0, error_message: query_warning.to_s.truncate(2000))
+        return { status: :failed, issues_count: 0 }
+      end
+
+      issues = IssueDigest::IssueResolver.new(@rule, user: user, recipient_modes: recipient.modes)
+                                         .resolve.limit(max_issues_per_email)
+      issues = preload_issue_associations(issues).to_a
       issues_count = issues.size
 
       if issues.empty? && !@rule.send_empty?
@@ -148,10 +182,14 @@ module IssueDigest
       { status: :failed, issues_count: 0 }
     end
 
+    def preload_issue_associations(scope)
+      scope.includes(:tracker, :status, :priority, :assigned_to, :fixed_version, :category)
+    end
+
     # Returns nil for group_by='none'; otherwise returns a hash {label => [issues]}.
     def group_issues(issues, group_by)
       return nil if group_by.blank? || group_by == 'none'
-      return nil unless GROUP_BY_OPTIONS.include?(group_by)
+      return nil unless IssueDigestRule::GROUP_BY_OPTIONS.include?(group_by)
 
       issues.group_by { |issue| group_label(issue, group_by) }
     end
@@ -159,17 +197,17 @@ module IssueDigest
     def group_label(issue, group_by)
       case group_by
       when 'assignee'
-        issue.assigned_to&.name || I18n.t('redmine_digest.mailer.unassigned', default: '(unassigned)')
+        issue.assigned_to&.name || I18n.t('redmine_mail_digest.mailer.unassigned', default: '(unassigned)')
       when 'priority'
-        issue.priority&.name || I18n.t('redmine_digest.mailer.no_priority', default: '(no priority)')
+        issue.priority&.name || I18n.t('redmine_mail_digest.mailer.no_priority', default: '(no priority)')
       when 'tracker'
-        issue.tracker&.name || I18n.t('redmine_digest.mailer.no_tracker', default: '(no tracker)')
+        issue.tracker&.name || I18n.t('redmine_mail_digest.mailer.no_tracker', default: '(no tracker)')
       when 'status'
-        issue.status&.name  || I18n.t('redmine_digest.mailer.no_status', default: '(no status)')
+        issue.status&.name  || I18n.t('redmine_mail_digest.mailer.no_status', default: '(no status)')
       when 'version'
-        issue.fixed_version&.name || I18n.t('redmine_digest.mailer.no_version', default: '(no version)')
+        issue.fixed_version&.name || I18n.t('redmine_mail_digest.mailer.no_version', default: '(no version)')
       when 'category'
-        issue.category&.name || I18n.t('redmine_digest.mailer.no_category', default: '(no category)')
+        issue.category&.name || I18n.t('redmine_mail_digest.mailer.no_category', default: '(no category)')
       end
     end
 
@@ -187,16 +225,23 @@ module IssueDigest
       return nil if @rule.query_id.blank?
 
       adapter = IssueDigest::QueryAdapter.new(@rule)
-      adapter.apply_to(Issue.none)
+      adapter.apply_to(Issue.all)
       adapter.warning
-    rescue StandardError
+    rescue StandardError => e
+      Rails.logger.error "[IssueDigest] Rule ##{@rule.id}: detect_query_warning failed: #{e.class}: #{e.message}"
       nil
     end
 
     def max_issues_per_email
-      settings = Setting.respond_to?(:plugin_redmine_digest) ? Setting.plugin_redmine_digest : nil
+      settings = Setting.respond_to?(:plugin_redmine_mail_digest) ? Setting.plugin_redmine_mail_digest : nil
       value = settings && settings['max_issues_per_email']
-      value.present? ? value.to_i : DEFAULT_MAX_ISSUES_PER_EMAIL
+      self.class.clamped_max_issues_per_email(value)
+    end
+
+    def self.clamped_max_issues_per_email(value)
+      number = value.present? ? value.to_i : DEFAULT_MAX_ISSUES_PER_EMAIL
+      number = DEFAULT_MAX_ISSUES_PER_EMAIL if number <= 0
+      [[number, MIN_MAX_ISSUES_PER_EMAIL].max, MAX_MAX_ISSUES_PER_EMAIL].min
     end
   end
 end

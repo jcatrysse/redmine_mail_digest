@@ -23,16 +23,30 @@ namespace :redmine do
       lock_result = IssueDigest::LockManager.with_lock do
         Rails.logger.info '[IssueDigest] Lock acquired'
 
+        # SQL pre-filter so we never load every rule into memory (S3). The date
+        # window is widened by ±1 day on purpose: start_on/end_on are evaluated
+        # in each rule's own timezone by ScheduleEvaluator#due?, which can differ
+        # from the server date by a day. Keeping the prefilter loose avoids
+        # dropping a rule that is valid in its timezone; due? remains the
+        # authoritative check.
+        today = Date.current
         scope = IssueDigestRule
                 .joins(:project)
                 .joins('INNER JOIN enabled_modules ON enabled_modules.project_id = projects.id')
                 .where(enabled_modules: { name: 'issue_digest' })
                 .where("#{Project.table_name}.status != ?", Project::STATUS_ARCHIVED)
                 .where(active: true)
+                .where('start_on IS NULL OR start_on <= ?', today + 1)
+                .where('end_on IS NULL OR end_on >= ?', today - 1)
                 .includes(:project, :query)
 
         scope = scope.where("#{Project.table_name}.identifier = ?", project_identifier) if project_identifier
         scope = scope.where(id: rule_id) if rule_id
+        # MANUAL=1 without RULE_ID is intentionally scoped to manual schedule
+        # rules only. MANUAL=1 with RULE_ID remains a deliberate one-off run of
+        # that specific rule, regardless of its schedule_type. FORCE=1 keeps the
+        # broader operator-controlled resend semantics.
+        scope = scope.where(schedule_type: 'manual') if manual && rule_id.blank?
 
         rules = scope.to_a
 
@@ -52,6 +66,12 @@ namespace :redmine do
           # Defense-in-depth atomic schedule_key claim (skipped on force/dry_run)
           schedule_key = IssueDigest::ScheduleEvaluator.new(rule, time: current_time, force: force).compute_schedule_key
 
+          # Only the genuinely-claimed scheduled window persists its key on the
+          # run record. Forced/dry runs leave it nil so they never collide with
+          # the (issue_digest_rule_id, schedule_key) unique index, which protects
+          # against duplicate scheduled run records (M8).
+          persisted_schedule_key = nil
+
           unless dry_run || force
             claimed = IssueDigestRule
                       .where(id: rule.id)
@@ -63,6 +83,7 @@ namespace :redmine do
               next
             end
             rule.reload
+            persisted_schedule_key = schedule_key
           end
 
           Rails.logger.info "[IssueDigest] Processing rule ##{rule.id}: #{rule.name.inspect} (project: #{rule.project.identifier})"
@@ -73,7 +94,7 @@ namespace :redmine do
               rule,
               dry_run: dry_run,
               trigger: trigger,
-              schedule_key: schedule_key
+              schedule_key: persisted_schedule_key
             )
             result = sender.send
             processed += 1
@@ -108,8 +129,9 @@ namespace :redmine do
 
     desc 'Prune old IssueDigestRun records (and their deliveries) according to run_history_retention_days'
     task cleanup: :environment do
-      settings       = Setting.plugin_redmine_digest rescue {}
+      settings       = Setting.plugin_redmine_mail_digest rescue {}
       retention_days = (settings && settings['run_history_retention_days']).to_i
+      retention_days = 36_500 if retention_days > 36_500
 
       if retention_days <= 0
         Rails.logger.info '[IssueDigest] Cleanup: run_history_retention_days is 0; retaining all records.'

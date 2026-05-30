@@ -1,0 +1,4 @@
+// Injects the rendered dry-run preview into the panel on the rule detail page.
+// Redmine ships jQuery globally and evaluates this response via rails-ujs on
+// ajax:success, the same mechanism the enable/disable/delete actions rely on.
+$('#digest-preview').html('<%= j(render partial: "preview", locals: { summary: @summary, recipient_names: @recipient_names }) %>');

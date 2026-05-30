@@ -1,8 +1,8 @@
-# redmine_digest
+# redmine_mail_digest
 
 A Redmine plugin for scheduled issue digest emails.
 
-`redmine_digest` lets project managers configure rules that send periodic email
+`redmine_mail_digest` lets project managers configure rules that send periodic email
 summaries of project issues to configurable recipients on a configurable schedule.
 Digests are sent through Redmine's standard mailer and triggered by a cron-driven
 rake task.
@@ -11,8 +11,9 @@ rake task.
 
 ## Features
 
-- **8 schedule types** — daily, selected weekdays, weekly, monthly by date, monthly on
-  last day, every N days, every N weeks, and manual (rake-only)
+- **10 schedule types** — daily, selected weekdays, weekly, monthly by date, monthly on
+  last day, every N days, every N weeks, every N hours, every N minutes,
+  and manual (rake-only)
 - **Flexible recipients** — all project members, members by role, assignees, authors,
   watchers, or specific users
 - **Issue filters** — open, closed, overdue, due soon, recently updated, recently
@@ -27,9 +28,11 @@ rake task.
   key; safe against concurrent cron invocations
 - **Run history** — every execution is recorded with recipient counts, delivery
   outcomes, and error messages
-- **Dry-run mode** — preview what would be sent without sending anything
+- **Dry-run mode** — preview what would be sent without sending anything, from the
+  command line (`DRY_RUN=1`) or via the **"Preview (dry run)"** button on the rule
+  page (shows per-recipient issue counts; no emails sent, nothing written)
 - **HTML and plain-text emails** — multipart email consistent with Redmine's style
-- Compatible with **Redmine 5.1** and **Redmine 6.1**
+- Compatible with **Redmine 5.1**, **6.0** and **6.1**
 
 ---
 
@@ -37,7 +40,7 @@ rake task.
 
 | Component | Version |
 |-----------|---------|
-| Redmine | 5.1.x or 6.1.x |
+| Redmine | 5.1.x, 6.0.x or 6.1.x |
 | Ruby | ≥ 3.0 (5.1) / ≥ 3.2, < 3.5 (6.1) |
 | Rails | 7.0.x (5.1) / 7.2.x (6.1) |
 | Database | PostgreSQL 14+, MySQL 8.0+, or SQLite 3.x |
@@ -52,7 +55,7 @@ No additional gems are required beyond those already included in Redmine.
 
 ```bash
 cd /path/to/redmine/plugins
-git clone https://github.com/jcatrysse/redmine_digest.git
+git clone https://github.com/jcatrysse/redmine_mail_digest.git
 ```
 
 ### 2. Run database migrations
@@ -75,12 +78,13 @@ touch tmp/restart.txt
 
 ### Global admin settings
 
-Navigate to **Administration → Plugins → redmine_digest → Configure**:
+Navigate to **Administration → Plugins → redmine_mail_digest → Configure**:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Maximum issues per email | 500 | Hard cap applied to every digest; range 1–5000 |
 | Run history retention (days) | 90 | Digest run records older than this are pruned by the cleanup task. Set to 0 to keep records indefinitely. |
+| Email-address recipient lookup | Off | Allows rule authors to enter email addresses that are resolved to registered Redmine users with project access. External non-user addresses are not mailed. |
 
 ### Enable the module per project
 
@@ -124,6 +128,8 @@ Assign roles in **Administration → Roles and Permissions → Issue Digest**:
 | `monthly_last_day` | On the last calendar day of each month | `{}` |
 | `interval_days` | Every N days, anchored to start date | `{"every":3}` |
 | `interval_weeks` | Every N weeks, anchored to start date | `{"every":2}` |
+| `interval_hours` | Every N hours, anchored to the start of the local day | `{"every":4}` |
+| `interval_minutes` | Every N minutes, anchored to the start of the local day | `{"every":30}` |
 | `manual` | Never automatic; use rake task only | `{}` |
 
 **Which type should I use?**
@@ -137,6 +143,7 @@ Assign roles in **Administration → Roles and Permissions → Issue Digest**:
 | On the last day of every month | `monthly_last_day` |
 | Every sprint (every 14 days) | `interval_days` with `{"every":14}` |
 | Every two weeks on the same weekday | `interval_weeks` with `{"every":2}` |
+| Several times per day | `interval_hours` or `interval_minutes` |
 | Only when I explicitly trigger it | `manual` |
 
 > **Note**: Days 29–31 are not available for `monthly_date` to avoid February edge cases.
@@ -202,7 +209,7 @@ bundle exec rake redmine:issue_digest:send RAILS_ENV=production
 | `RULE_ID=42` | Limit to one rule |
 | `VERBOSE=1` | Log rule names, recipient counts, and issue counts |
 | `FORCE=1` | Ignore idempotency guard; re-send even if already sent in this window |
-| `MANUAL=1` | Equivalent to `FORCE=1`; triggers `manual` schedule_type rules |
+| `MANUAL=1` | Manual one-off mode. Without `RULE_ID`, only active rules with `schedule_type=manual` are processed. With `RULE_ID`, that rule is processed manually (regardless of schedule type). Manual runs ignore schedule-window idempotency. |
 
 ### Example commands
 
@@ -217,8 +224,11 @@ bundle exec rake redmine:issue_digest:send DRY_RUN=1 RAILS_ENV=production
 bundle exec rake redmine:issue_digest:send DRY_RUN=1 VERBOSE=1 \
   PROJECT_IDENTIFIER=my-project RAILS_ENV=production
 
-# Trigger a manual rule
+# Trigger a specific rule manually
 bundle exec rake redmine:issue_digest:send RULE_ID=42 MANUAL=1 RAILS_ENV=production
+
+# Trigger all active rules whose schedule type is manual
+bundle exec rake redmine:issue_digest:send MANUAL=1 RAILS_ENV=production
 
 # Prune old run history
 bundle exec rake redmine:issue_digest:cleanup RAILS_ENV=production
@@ -260,8 +270,8 @@ additional layer of protection.
 
 ```bash
 cd /path/to/redmine
-bundle exec rake redmine:plugins:migrate NAME=redmine_digest VERSION=0 RAILS_ENV=production
-rm -rf plugins/redmine_digest
+bundle exec rake redmine:plugins:migrate NAME=redmine_mail_digest VERSION=0 RAILS_ENV=production
+rm -rf plugins/redmine_mail_digest
 ```
 
 ---
@@ -274,7 +284,7 @@ rm -rf plugins/redmine_digest
 # Clone Redmine alongside the plugin
 git clone --depth 1 --branch 6.1-stable https://github.com/redmine/redmine.git
 cd redmine
-ln -s /path/to/redmine_digest plugins/redmine_digest
+ln -s /path/to/redmine_mail_digest plugins/redmine_mail_digest
 
 # Set up the test database
 cp config/database.yml.example config/database.yml
@@ -283,15 +293,17 @@ bundle install
 bundle exec rake db:create db:migrate redmine:plugins:migrate RAILS_ENV=test
 
 # Run the plugin's test suite
-bundle exec rspec plugins/redmine_digest/spec
+bundle exec rspec plugins/redmine_mail_digest/spec
 ```
 
 ### CI
 
-Two GitHub Actions workflows are provided:
+GitHub Actions workflows are provided:
 
 - `.github/workflows/rspec-61.yml` — Redmine 6.1, Ruby 3.3, PostgreSQL 16
+- `.github/workflows/rspec-60.yml` — Redmine 6.0, PostgreSQL 16
 - `.github/workflows/rspec-51.yml` — Redmine 5.1, Ruby 3.2, PostgreSQL 16
+- `.github/workflows/rspec-mysql.yml` — MySQL 8.0
 
 Trigger them manually from the **Actions** tab.
 

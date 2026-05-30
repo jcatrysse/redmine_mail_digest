@@ -176,6 +176,11 @@
       <em class="info"><%= l(:hint_query) %></em>
     </p>
     <p>
+      <%= f.check_box :include_subprojects %>
+    </p>
+
+    <p class="description"><strong><%= l(:label_filter_group_match) %></strong></p>
+    <p>
       <%= f.check_box :include_open %>
     </p>
     <p>
@@ -198,23 +203,45 @@
       <%= f.check_box :include_recently_created %>
       <%= f.number_field :recently_created_days, min: 1, max: 365, no_label: true %>
     </p>
-    <p>
-      <%= f.check_box :only_since_last_run %>
-      <em class="info"><%= l(:hint_only_since_last_run) %></em>
-    </p>
-    <p>
-      <%= f.check_box :include_subprojects %>
-    </p>
     <p class="description"><%= l(:hint_filters) %></p>
+
+    <p class="description"><strong><%= l(:label_filter_group_narrow) %></strong></p>
+    <p>
+      <%= f.check_box :since_last_run_created %>
+    </p>
+    <p>
+      <%= f.check_box :since_last_run_updated %>
+    </p>
+    <p class="description"><%= l(:hint_since_last_run) %></p>
   </fieldset>
 
   <fieldset class="box tabular">
     <legend><%= l(:field_recipient_modes) %></legend>
     <% recipient_modes = Array(rule.recipient_modes) %>
-    <% [['project_members', l(:recipient_mode_project_members)],
-        ['assignees',       l(:recipient_mode_assignees)],
-        ['authors',         l(:recipient_mode_authors)],
-        ['watchers',        l(:recipient_mode_watchers)]].each do |value, label| %>
+    <p>
+      <label class="inline">
+        <%= check_box_tag 'issue_digest_rule[recipient_modes][]', 'project_members', recipient_modes.include?('project_members') %>
+        <%= l(:recipient_mode_project_members) %>
+      </label>
+    </p>
+
+    <% roles = available_roles_for_digest %>
+    <% if roles.any? %>
+      <p>
+        <label><%= l(:recipient_mode_role) %></label>
+        <% roles.each do |role| %>
+          <% value = "role:#{role.id}" %>
+          <label class="inline">
+            <%= check_box_tag 'issue_digest_rule[recipient_modes][]', value, recipient_modes.include?(value) %>
+            <%= role.name %>
+          </label>
+        <% end %>
+      </p>
+    <% end %>
+
+    <% [['assignees', l(:recipient_mode_assignees)],
+        ['authors',   l(:recipient_mode_authors)],
+        ['watchers',  l(:recipient_mode_watchers)]].each do |value, label| %>
       <p>
         <label class="inline">
           <%= check_box_tag 'issue_digest_rule[recipient_modes][]', value, recipient_modes.include?(value) %>
@@ -222,6 +249,7 @@
         </label>
       </p>
     <% end %>
+    <p class="description"><%= l(:hint_recipient_relationship_modes) %></p>
     <%# Specific project members — rendered like Redmine's native filter value
         multiselect: a single dropdown when 0/1 users are chosen, a sized
         multiple-select (no blank option) when several are chosen, plus the
@@ -261,6 +289,7 @@
 
     <p class="description"><%= l(:hint_recipients) %></p>
 
+    <p class="description"><strong><%= l(:label_personalization) %></strong></p>
     <p>
       <%= f.check_box :filter_assigned_to_recipient %>
     </p>
@@ -270,6 +299,7 @@
     <p>
       <%= f.check_box :filter_authored_by_recipient %>
     </p>
+    <p class="description"><%= l(:hint_personalization) %></p>
   </fieldset>
 
   <fieldset class="box tabular">
@@ -343,5 +373,35 @@
 
     sel.addEventListener('change', update);
     update();
+
+    // The "When trigger falls on weekend" behaviour only has an effect when
+    // "Weekdays only" is enabled; disable it otherwise so the choice can't be
+    // set in a no-op state.
+    var bizCheckbox = document.getElementById('issue_digest_rule_business_days_only');
+    var weekendBehavior = document.getElementById('issue_digest_rule_non_business_day_behavior');
+    if (bizCheckbox && weekendBehavior) {
+      var syncWeekendBehavior = function() {
+        weekendBehavior.disabled = !bizCheckbox.checked;
+      };
+      bizCheckbox.addEventListener('change', syncWeekendBehavior);
+      syncWeekendBehavior();
+    }
+
+    // Each "include …" filter has an optional day-count input that only matters
+    // when its checkbox is ticked; grey it out otherwise so it can't look like a
+    // setting that has an effect while the filter is off.
+    [
+      ['issue_digest_rule_include_overdue',          'issue_digest_rule_overdue_min_days'],
+      ['issue_digest_rule_include_due_soon',         'issue_digest_rule_due_soon_days'],
+      ['issue_digest_rule_include_recently_updated', 'issue_digest_rule_recently_updated_days'],
+      ['issue_digest_rule_include_recently_created', 'issue_digest_rule_recently_created_days']
+    ].forEach(function(pair) {
+      var checkbox = document.getElementById(pair[0]);
+      var input    = document.getElementById(pair[1]);
+      if (!checkbox || !input) return;
+      var sync = function() { input.disabled = !checkbox.checked; };
+      checkbox.addEventListener('change', sync);
+      sync();
+    });
   })();
 <% end %>

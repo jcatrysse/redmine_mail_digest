@@ -123,6 +123,23 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
       expect(result.map(&:id)).not_to include(old.id)
     end
 
+    it 'OR-combines status and recency filters (additive inclusion)' do
+      # An old (not-recently-created) open issue and a recently-created closed
+      # issue. With "Open" + "Recently created" both checked, ADDITIVE/OR logic
+      # must include both — the open one via status, the closed one via recency.
+      old_open = make_issue
+      old_open.reload.update_column(:created_on, 30.days.ago)
+
+      recent_closed = make_issue(status: closed_st)
+
+      r = create(:issue_digest_rule, project: project,
+                 include_open: true, include_closed: false,
+                 include_recently_created: true, recently_created_days: 7)
+      result = described_class.new(r, user: user).resolve
+      expect(result.map(&:id)).to include(old_open.id)
+      expect(result.map(&:id)).to include(recent_closed.id)
+    end
+
     it 'excludes issues from other projects' do
       other_project = create(:project, is_public: true)
       other_tracker = create(:tracker, default_status: open_st)
@@ -164,6 +181,42 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
       expect(result.map(&:id)).to eq([watched.id])
     end
 
+    context 'source-aware personalization via recipient_modes' do
+      let(:other_user) { create(:user, admin: true) }
+
+      it 'narrows to the recipient\'s own issues for the :assignees source' do
+        mine    = make_issue(assigned_to: user)
+        theirs  = make_issue(assigned_to: other_user, author: other_user)
+        result  = described_class.new(rule, user: user, recipient_modes: Set[:assignees]).resolve
+        expect(result.map(&:id)).to eq([mine.id])
+        expect(result.map(&:id)).not_to include(theirs.id)
+      end
+
+      it 'does not narrow when the recipient also came in via a :broad mode' do
+        mine   = make_issue(assigned_to: user)
+        theirs = make_issue(assigned_to: other_user, author: other_user)
+        result = described_class.new(rule, user: user, recipient_modes: Set[:assignees, :broad]).resolve
+        expect(result.map(&:id)).to match_array([mine.id, theirs.id])
+      end
+
+      it 'OR-combines multiple source modes (assignee OR watcher)' do
+        assigned    = make_issue(assigned_to: user)
+        watched     = make_issue(assigned_to: other_user, author: other_user)
+        unrelated   = make_issue(assigned_to: other_user, author: other_user)
+        Watcher.find_or_create_by!(watchable: watched, user: user)
+        result = described_class.new(rule, user: user, recipient_modes: Set[:assignees, :watchers]).resolve
+        expect(result.map(&:id)).to match_array([assigned.id, watched.id])
+        expect(result.map(&:id)).not_to include(unrelated.id)
+      end
+
+      it 'leaves the scope unchanged when recipient_modes is nil (legacy behavior)' do
+        mine   = make_issue(assigned_to: user)
+        theirs = make_issue(assigned_to: other_user, author: other_user)
+        result = described_class.new(rule, user: user).resolve
+        expect(result.map(&:id)).to match_array([mine.id, theirs.id])
+      end
+    end
+
     it 'returns Issue.none on exception' do
       bad_rule = build(:issue_digest_rule, project: project, include_open: true)
       allow(bad_rule).to receive(:project).and_raise(StandardError, 'boom')
@@ -203,7 +256,7 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
     end
   end
 
-  describe '#resolve with only_since_last_run' do
+  describe '#resolve with since-last-run flags' do
     let(:base_attrs) do
       {
         project: project,
@@ -216,11 +269,12 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
         filter_assigned_to_recipient: false,
         filter_watched_by_recipient: false,
         filter_authored_by_recipient: false,
-        only_since_last_run: true
+        since_last_run_created: true,
+        since_last_run_updated: true
       }
     end
 
-    it 'includes issues created after last_success_at' do
+    it 'includes issues created after last_success_at (both flags = legacy behaviour)' do
       cutoff = 2.hours.ago
       old_issue = make_issue
       old_issue.reload.update_column(:created_on, 3.hours.ago)
@@ -234,7 +288,7 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
       expect(result.map(&:id)).not_to include(old_issue.id)
     end
 
-    it 'includes issues updated after last_success_at even when created before it' do
+    it 'includes issues updated after last_success_at even when created before it (both flags)' do
       cutoff = 2.hours.ago
       old_but_updated = make_issue
       old_but_updated.reload.update_column(:created_on, 3.hours.ago)
@@ -249,6 +303,38 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
       expect(result.map(&:id)).not_to include(old_and_stale.id)
     end
 
+    it 'created-only flag excludes issues that were merely updated since the cutoff' do
+      cutoff = 2.hours.ago
+      newly_created = make_issue
+      newly_created.reload.update_column(:created_on, 1.hour.ago)
+      old_but_updated = make_issue
+      old_but_updated.reload.update_column(:created_on, 3.hours.ago)
+      old_but_updated.reload.update_column(:updated_on, 1.hour.ago)
+
+      r = create(:issue_digest_rule, base_attrs.merge(since_last_run_updated: false, last_success_at: cutoff))
+      result = described_class.new(r, user: user).resolve
+      expect(result.map(&:id)).to include(newly_created.id)
+      expect(result.map(&:id)).not_to include(old_but_updated.id)
+    end
+
+    it 'updated-only flag excludes issues that were merely created since the cutoff' do
+      cutoff = 2.hours.ago
+      # An issue created (and last touched) after the cutoff but with created_on
+      # > updated_on is impossible in practice; instead use an old issue updated
+      # recently (matches) vs. a brand-new issue whose updated_on we push back.
+      old_but_updated = make_issue
+      old_but_updated.reload.update_column(:created_on, 3.hours.ago)
+      old_but_updated.reload.update_column(:updated_on, 1.hour.ago)
+      newly_created_stale_update = make_issue
+      newly_created_stale_update.reload.update_column(:created_on, 1.hour.ago)
+      newly_created_stale_update.reload.update_column(:updated_on, 3.hours.ago)
+
+      r = create(:issue_digest_rule, base_attrs.merge(since_last_run_created: false, last_success_at: cutoff))
+      result = described_class.new(r, user: user).resolve
+      expect(result.map(&:id)).to include(old_but_updated.id)
+      expect(result.map(&:id)).not_to include(newly_created_stale_update.id)
+    end
+
     it 'includes all project issues when last_success_at is nil (uses created_at as cutoff)' do
       # When there is no last_success_at, we fall back to rule.created_at.
       # All issues created after the rule was created should be included.
@@ -259,10 +345,13 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
       expect(result.map(&:id)).to include(issue.id)
     end
 
-    it 'returns all issues when only_since_last_run is false' do
+    it 'returns all issues when neither since-last-run flag is set' do
       old_issue = make_issue
       old_issue.reload.update_column(:created_on, 1.day.ago)
-      r = create(:issue_digest_rule, base_attrs.merge(only_since_last_run: false, last_success_at: 1.hour.ago))
+      old_issue.reload.update_column(:updated_on, 1.day.ago)
+      r = create(:issue_digest_rule, base_attrs.merge(since_last_run_created: false,
+                                                      since_last_run_updated: false,
+                                                      last_success_at: 1.hour.ago))
       result = described_class.new(r, user: user).resolve
       expect(result.map(&:id)).to include(old_issue.id)
     end
@@ -282,6 +371,24 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
       expect(Rails.logger).to receive(:warn).with(/not found/)
       resolver.resolve
       expect(resolver.query_adapter_warning).to match(/no longer exists/)
+    end
+  end
+end
+
+RSpec.describe IssueDigest::IssueResolver, type: :service do
+  before do
+    allow_any_instance_of(User).to receive(:deliver_security_notification)
+  end
+
+  describe 'portable due-date ordering' do
+    it 'does not use PostgreSQL-only NULLS LAST syntax' do
+      project = create(:project)
+      user = create(:user)
+      rule = build(:issue_digest_rule, project: project, created_by: user)
+      resolver = described_class.new(rule, user: user)
+
+      expect(resolver.send(:portable_due_date_order_sql)).to include('due_date IS NULL ASC')
+      expect(resolver.send(:portable_due_date_order_sql)).not_to include('NULLS LAST')
     end
   end
 end

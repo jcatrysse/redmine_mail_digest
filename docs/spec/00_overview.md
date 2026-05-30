@@ -1,6 +1,6 @@
-# redmine_digest — Specification Index
+# redmine_mail_digest — Specification Index
 
-**Plugin name:** `redmine_digest`  
+**Plugin name:** `redmine_mail_digest`  
 **Spec version:** 1.1  
 **Date:** 2026-05-27  
 **Status:** Implementation-ready — all open questions resolved  
@@ -14,7 +14,7 @@
 
 ## Purpose
 
-`redmine_digest` is a Redmine plugin that allows project managers to configure
+`redmine_mail_digest` is a Redmine plugin that allows project managers to configure
 scheduled email digests for their projects. A digest collects issues matching
 configurable criteria and sends them to configurable recipients on a configurable
 schedule. Digests are sent via the existing Redmine mailer infrastructure and

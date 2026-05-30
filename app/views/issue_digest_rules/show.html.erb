@@ -4,6 +4,10 @@
 
 <div class="contextual">
   <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
+    <%= link_to l(:button_digest_preview),
+                preview_project_issue_digest_rule_path(@project, @rule),
+                remote: true, method: :post,
+                class: 'icon icon-test' %>
     <%= link_to l(:button_edit),
                 edit_project_issue_digest_rule_path(@project, @rule),
                 class: 'icon icon-edit' %>
@@ -16,11 +20,11 @@
                     enable_project_issue_digest_rule_path(@project, @rule),
                     method: :post, class: 'icon icon-unlock' %>
     <% end %>
-    <%= link_to l(:button_delete),
-                project_issue_digest_rule_path(@project, @rule),
-                method: :delete,
-                data: { confirm: l(:text_digest_rule_delete_confirm, name: @rule.name) },
-                class: 'icon icon-del' %>
+    <%= button_to l(:button_delete),
+                  project_issue_digest_rule_path(@project, @rule),
+                  method: :delete,
+                  data: { confirm: l(:text_digest_rule_delete_confirm, name: @rule.name) },
+                  class: 'icon icon-del' %>
   <% end %>
 </div>
 
@@ -65,6 +69,10 @@
     <div class="wiki"><%= textilizable @rule.email_intro %></div>
   <% end %>
 </div>
+
+<% if User.current.allowed_to?(:manage_digest_rules, @project) %>
+  <div id="digest-preview"></div>
+<% end %>
 
 <h3><%= l(:label_run_history) %></h3>
 

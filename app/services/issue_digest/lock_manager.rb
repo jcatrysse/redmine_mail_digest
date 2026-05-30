@@ -1,8 +1,13 @@
 # frozen_string_literal: true
 
+require 'zlib'
+
 module IssueDigest
   class LockManager
-    LOCK_KEY = 'issue_digest_send'.bytes.sum.freeze
+    # CRC32 of 'issue_digest_send' — far less likely to collide with other plugins
+    # than a simple byte sum. PostgreSQL advisory locks share a single 64-bit namespace
+    # per database, so plugin-unique keys matter.
+    LOCK_KEY = Zlib.crc32('issue_digest_send').freeze
 
     def self.with_lock(&block)
       adapter = ActiveRecord::Base.connection.adapter_name.downcase
@@ -14,19 +19,17 @@ module IssueDigest
     end
 
     def self.pg_lock(&block)
-      result = false
-      ActiveRecord::Base.connection.transaction do
-        acquired = ActiveRecord::Base.connection.execute(
-          "SELECT pg_try_advisory_xact_lock(#{LOCK_KEY})"
-        ).first['pg_try_advisory_xact_lock']
-
-        if acquired
-          result = block.call
-        else
-          Rails.logger.warn '[IssueDigest] Could not acquire advisory lock; another process may be running.'
-        end
+      conn = ActiveRecord::Base.connection
+      acquired = conn.execute("SELECT pg_try_advisory_lock(#{LOCK_KEY})").first['pg_try_advisory_lock']
+      unless acquired
+        Rails.logger.warn '[IssueDigest] Could not acquire advisory lock; another process may be running.'
+        return false
       end
-      result
+      begin
+        block.call
+      ensure
+        conn.execute("SELECT pg_advisory_unlock(#{LOCK_KEY})")
+      end
     end
     private_class_method :pg_lock
 

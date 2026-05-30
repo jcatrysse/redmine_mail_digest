@@ -20,6 +20,8 @@ class IssueDigestRule < ActiveRecord::Base
   GROUP_BY_OPTIONS = %w[none assignee priority tracker status version category].freeze
   RECIPIENT_MODE_PATTERN = /\A(?:project_members|assignees|authors|watchers|role:\d+|user:\d+|email:[^@\s]+@[^@\s]+\.[^@\s]+)\z/
 
+  HHMM_PATTERN = /\A(?:[01]\d|2[0-3]):[0-5]\d\z/
+
   belongs_to :project
   belongs_to :query, class_name: 'IssueQuery', foreign_key: :query_id, optional: true
   belongs_to :created_by, class_name: 'User'
@@ -60,6 +62,7 @@ class IssueDigestRule < ActiveRecord::Base
   validate :recipient_modes_valid
   validate :schedule_config_valid
   validate :timezone_valid
+  validate :query_belongs_to_project, if: :query_id_needs_validation?
 
   scope :enabled, -> { where(active: true) }
   scope :in_date_range, lambda {
@@ -80,7 +83,7 @@ class IssueDigestRule < ActiveRecord::Base
   end
 
   def within_date_range?
-    today = Date.current
+    today = current_date_in_zone
     return false if start_on && start_on > today
     return false if end_on && end_on < today
 
@@ -90,10 +93,21 @@ class IssueDigestRule < ActiveRecord::Base
   # Returns one of :active, :disabled, :pending, :expired for UI badges.
   def status_label
     return :disabled unless active
-    return :pending if start_on && start_on > Date.current
-    return :expired if end_on && end_on < Date.current
+
+    today = current_date_in_zone
+    return :pending if start_on && start_on > today
+    return :expired if end_on && end_on < today
 
     :active
+  end
+
+  # "Today" interpreted in the rule's own timezone, so start_on/end_on
+  # boundaries flip on the same calendar day the scheduler uses (which also
+  # works per-rule timezone). Falls back to the server date on bad input.
+  def current_date_in_zone
+    Time.current.in_time_zone(timezone.presence || 'UTC').to_date
+  rescue StandardError
+    Date.current
   end
 
   def last_run
@@ -112,11 +126,19 @@ class IssueDigestRule < ActiveRecord::Base
 
   def coerce_schedule_config
     val = schedule_config
+    # The column is NOT NULL with no DB default (MySQL forbids defaults on TEXT),
+    # so normalize a missing value to an empty Hash here. The serializer then
+    # writes '{}' on insert.
+    if val.nil?
+      self.schedule_config = {}
+      return
+    end
+
     return unless val.is_a?(String)
 
-    # Parse valid JSON strings (e.g. DB-level default '{}'). On failure, leave the
-    # raw String in place so schedule_config_valid adds the proper :invalid error
-    # rather than silently accepting nil as an empty config.
+    # Parse valid JSON strings. On failure, leave the raw String in place so
+    # schedule_config_valid adds the proper :invalid error rather than silently
+    # accepting nil as an empty config.
     begin
       self.schedule_config = JSON.parse(val)
     rescue JSON::ParserError
@@ -126,13 +148,42 @@ class IssueDigestRule < ActiveRecord::Base
 
   def coerce_recipient_modes
     val = recipient_modes
-    return unless val.is_a?(String)
-
-    begin
-      self.recipient_modes = JSON.parse(val)
-    rescue JSON::ParserError
-      # intentionally left blank — validator will reject the non-Array value
+    # NOT NULL with no DB default (see coerce_schedule_config): normalize a
+    # missing value to []. recipient_modes_valid still rejects an empty array
+    # (at least one mode is required), but the column never receives NULL.
+    if val.nil?
+      self.recipient_modes = []
+      return
     end
+
+    if val.is_a?(String)
+      begin
+        self.recipient_modes = JSON.parse(val)
+      rescue JSON::ParserError
+        # intentionally left blank — validator will reject the non-Array value
+        return
+      end
+    end
+
+    return unless recipient_modes.is_a?(Array)
+
+    # Persist a clean array: drop blanks and duplicates while preserving the
+    # order in which modes were chosen. The resolver also de-duplicates users at
+    # send time, but storing a normalized array keeps UI summaries and diffs clear.
+    self.recipient_modes = recipient_modes
+                           .reject { |m| m.respond_to?(:blank?) ? m.blank? : m.nil? }
+                           .uniq
+  end
+
+  def query_id_needs_validation?
+    query_id.present? && (new_record? || will_save_change_to_query_id?)
+  end
+
+  def query_belongs_to_project
+    q = IssueQuery.find_by(id: query_id)
+    return if q && IssueDigest::QueryAdapter.query_usable_for_rule?(q, self)
+
+    errors.add(:query_id, :invalid, message: I18n.t(:error_query_invalid))
   end
 
   def end_on_after_start_on
@@ -186,8 +237,6 @@ class IssueDigestRule < ActiveRecord::Base
       validate_sub_daily_days(config)
     end
   end
-
-  HHMM_PATTERN = /\A(?:[01]\d|2[0-3]):[0-5]\d\z/
 
   def validate_sub_daily_time_window(config)
     from_s = config['from'].presence

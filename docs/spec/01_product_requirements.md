@@ -1,4 +1,4 @@
-# Product Requirements Specification — redmine_digest
+# Product Requirements Specification — redmine_mail_digest
 
 ## 1. Problem Statement
 
@@ -306,8 +306,8 @@ Email arrives with subject "[ProjectName] Daily open issues — 2026-05-27"
 | No matching issues | Skip email (or send empty digest if `send_empty=true`) |
 | No matching recipients | Skip rule, log warning |
 | SMTP delivery failure | Record failure in `issue_digest_deliveries.error_message`; continue |
-| Saved query deleted | Log warning; skip query filter; apply remaining filters |
-| Saved query not visible to system | Log warning; skip query filter |
+| Saved query deleted | Block delivery for that rule; log warning and record the warning on the run |
+| Saved query not visible/unusable to system | Block delivery for that rule; log warning and record the warning on the run |
 | Project archived | Skip all rules for that project |
 | Project closed (not archived) | Run normally |
 | Rule end date passed | Rule is inactive; skip |

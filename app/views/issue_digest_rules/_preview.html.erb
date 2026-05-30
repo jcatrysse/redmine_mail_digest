@@ -1,0 +1,42 @@
+<div class="box">
+  <h3><%= l(:label_digest_preview) %></h3>
+  <p class="description"><%= l(:hint_digest_preview) %></p>
+
+  <% if summary[:warning_message].present? %>
+    <p class="flash warning"><%= summary[:warning_message] %></p>
+  <% end %>
+
+  <% plans = Array(summary[:plans]) %>
+  <% if plans.empty? %>
+    <p class="nodata"><%= l(:text_digest_preview_no_recipients) %></p>
+  <% else %>
+    <p><%= l(:text_digest_preview_recipients, count: summary[:recipients_count]) %></p>
+    <table class="list">
+      <thead>
+        <tr>
+          <th><%= l(:label_digest_preview_recipient) %></th>
+          <th><%= l(:label_digest_preview_outcome) %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% plans.each do |plan| %>
+          <tr>
+            <td><%= h(recipient_names[plan[:user_id]] || "##{plan[:user_id]}") %></td>
+            <td>
+              <% case plan[:action] %>
+              <% when :send %>
+                <%= l(:digest_preview_would_send, count: plan[:issues_count]) %>
+              <% when :skip %>
+                <%= l(:digest_preview_would_skip) %>
+              <% when :fail %>
+                <span class="error"><%= l(:digest_preview_would_fail) %></span>
+              <% else %>
+                <%= plan[:action] %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</div>

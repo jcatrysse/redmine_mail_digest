@@ -78,6 +78,62 @@ RSpec.describe 'Digest pipeline integration', type: :request do
     end
   end
 
+  describe 'recipient mode: assignees (source-aware personalization)' do
+    it 'emails only assignees of matching issues, each scoped to their own work' do
+      add_member(alice)
+      add_member(bob)
+      carol = create(:user)
+      add_member(carol) # member, but assigned nothing → must not be emailed
+
+      make_issue(subject: 'Alice work', assigned_to: alice)
+      make_issue(subject: 'Bob work',   assigned_to: bob)
+
+      rule = create(:issue_digest_rule,
+                    project: project,
+                    include_open: true,
+                    recipient_modes: ['assignees'])
+
+      ActionMailer::Base.deliveries.clear
+      result = IssueDigest::DigestSender.new(rule, dry_run: false, trigger: :manual).send
+
+      expect(result.emails_sent_count).to eq(2)
+      recipients = ActionMailer::Base.deliveries.flat_map(&:to)
+      expect(recipients).to match_array([alice.mail, bob.mail])
+      expect(recipients).not_to include(carol.mail)
+
+      alice_mail = ActionMailer::Base.deliveries.find { |m| m.to.include?(alice.mail) }
+      bob_mail   = ActionMailer::Base.deliveries.find { |m| m.to.include?(bob.mail) }
+      expect(alice_mail.html_part.body.to_s).to include('Alice work')
+      expect(alice_mail.html_part.body.to_s).not_to include('Bob work')
+      expect(bob_mail.html_part.body.to_s).to include('Bob work')
+      expect(bob_mail.html_part.body.to_s).not_to include('Alice work')
+    end
+
+    it 'still sends the full matching list to a specific user added alongside assignees' do
+      add_member(alice)
+      add_member(bob)
+      make_issue(subject: 'Alice work', assigned_to: alice)
+      make_issue(subject: 'Bob work',   assigned_to: bob)
+
+      rule = create(:issue_digest_rule,
+                    project: project,
+                    include_open: true,
+                    recipient_modes: ['assignees', "user:#{bob.id}"])
+
+      ActionMailer::Base.deliveries.clear
+      IssueDigest::DigestSender.new(rule, dry_run: false, trigger: :manual).send
+
+      # Bob qualifies via both modes; the broad (specific-user) mode wins → full list.
+      bob_mail   = ActionMailer::Base.deliveries.find { |m| m.to.include?(bob.mail) }
+      alice_mail = ActionMailer::Base.deliveries.find { |m| m.to.include?(alice.mail) }
+      expect(bob_mail.html_part.body.to_s).to include('Alice work')
+      expect(bob_mail.html_part.body.to_s).to include('Bob work')
+      # Alice came in only as an assignee → narrowed to her own work.
+      expect(alice_mail.html_part.body.to_s).to include('Alice work')
+      expect(alice_mail.html_part.body.to_s).not_to include('Bob work')
+    end
+  end
+
   describe 'personalization: filter_assigned_to_recipient' do
     it 'each recipient sees only issues assigned to them' do
       add_member(alice)

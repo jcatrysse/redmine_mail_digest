@@ -1,13 +1,13 @@
-# Technical Architecture Specification — redmine_digest
+# Technical Architecture Specification — redmine_mail_digest
 
 ## 1. Plugin Identity
 
 | Field | Value |
 |-------|-------|
-| Plugin name | `redmine_digest` |
+| Plugin name | `redmine_mail_digest` |
 | Module name (Ruby) | `IssueDigest` |
 | Project module name | `:issue_digest` |
-| Plugin directory | `plugins/redmine_digest/` |
+| Plugin directory | `plugins/redmine_mail_digest/` |
 | Redmine project module key | `issue_digest` |
 | DB table prefix | `issue_digest_` |
 
@@ -16,7 +16,7 @@
 ## 2. Plugin Directory Structure
 
 ```
-plugins/redmine_digest/
+plugins/redmine_mail_digest/
 ├── init.rb
 ├── Gemfile
 ├── app/
@@ -70,7 +70,7 @@ plugins/redmine_digest/
 │       ├── 003_create_issue_digest_deliveries.rb
 │       └── 004_change_grace_window_hours_default.rb
 ├── lib/
-│   ├── redmine_digest/
+│   ├── redmine_mail_digest/
 │   │   ├── version.rb
 │   │   └── projects_helper_patch.rb           # adds settings tab
 │   └── tasks/
@@ -99,17 +99,17 @@ plugins/redmine_digest/
 ## 3. init.rb Responsibilities
 
 ```ruby
-# plugins/redmine_digest/init.rb
+# plugins/redmine_mail_digest/init.rb
 
-require_relative 'lib/redmine_digest/version'
-require_relative 'lib/redmine_digest/projects_helper_patch'
+require_relative 'lib/redmine_mail_digest/version'
+require_relative 'lib/redmine_mail_digest/projects_helper_patch'
 
-Redmine::Plugin.register :redmine_digest do
+Redmine::Plugin.register :redmine_mail_digest do
   name        'Redmine Digest'
-  author      'redmine_digest contributors'
+  author      'redmine_mail_digest contributors'
   description 'Scheduled issue digest emails for Redmine projects'
   version     IssueDigest::VERSION
-  url         'https://github.com/jcatrysse/redmine_digest'
+  url         'https://github.com/jcatrysse/redmine_mail_digest'
   author_url  'https://github.com/jcatrysse'
 
   requires_redmine version_or_higher: '5.1.0'
@@ -152,7 +152,7 @@ end
 - No sidebar menu entry; access is exclusively through the Project Settings tab
   (added via `IssueDigest::ProjectsHelperPatch`).
 - The `to_prepare` double-nesting anti-pattern is deliberately avoided — see the
-  comment in `init.rb` and `lib/redmine_digest/projects_helper_patch.rb`.
+  comment in `init.rb` and `lib/redmine_mail_digest/projects_helper_patch.rb`.
 
 ---
 
@@ -178,7 +178,7 @@ File naming rules:
 ## 5. Routes
 
 ```ruby
-# plugins/redmine_digest/config/routes.rb
+# plugins/redmine_mail_digest/config/routes.rb
 
 RedmineApp::Application.routes.draw do
   resources :projects, only: [] do
@@ -459,7 +459,7 @@ separate to avoid conflicts with Redmine's own notification system).
 The plugin adds a "Digest Rules" tab to the standard Redmine Project Settings page
 (the same page that shows Members, Versions, Issue categories, etc.).
 
-**Implementation**: `lib/redmine_digest/projects_helper_patch.rb` patches
+**Implementation**: `lib/redmine_mail_digest/projects_helper_patch.rb` patches
 `ProjectsHelper#project_settings_tabs` using the `alias_method` chain pattern
 (`_with_/_without_` style, compatible with other Redmine plugins). The module is
 included directly in `init.rb` (not inside `to_prepare`) because `init.rb` already
@@ -498,7 +498,7 @@ entry point; there is no sidebar menu entry.
 config/locales/en.yml
 ```
 
-All locale keys are namespaced under `redmine_digest` or use Redmine's `label_*` /
+All locale keys are namespaced under `redmine_mail_digest` or use Redmine's `label_*` /
 `button_*` / `notice_*` / `error_*` conventions where appropriate.
 
 See `06_ui_spec.md` for complete English key list.
@@ -538,7 +538,7 @@ See `05_scheduler.md` for full specification.
 | `Watcher` | Watcher recipient mode |
 | `ActionMailer::Base` | Email delivery |
 | `Rails.logger` | Logging |
-| `Setting.plugin_redmine_digest` | Global plugin settings |
+| `Setting.plugin_redmine_mail_digest` | Global plugin settings |
 | Redmine `layouts/base` | Controller rendering within Redmine layout |
 | Redmine I18n / locale YAML | All UI strings |
 

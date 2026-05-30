@@ -4,6 +4,10 @@ module IssueDigest
   module ProjectsHelperPatch
     def self.included(base)
       base.module_eval do
+        # Include DigestRulesHelper into ProjectsHelper so its methods are available
+        # in the project settings views that ProjectsController renders. This is the
+        # standard Redmine pattern; the trade-off is that these methods become callable
+        # in every view that uses ProjectsHelper.
         include IssueDigest::DigestRulesHelper unless include?(IssueDigest::DigestRulesHelper)
         unless method_defined?(:project_settings_tabs_without_issue_digest)
           alias_method :project_settings_tabs_without_issue_digest, :project_settings_tabs

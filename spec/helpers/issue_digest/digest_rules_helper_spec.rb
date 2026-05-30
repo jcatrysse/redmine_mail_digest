@@ -15,7 +15,7 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
         name:                     'Test',
         active:                   true,
         schedule_type:            'daily',
-        send_time:                Time.parse('08:00:00'),
+        send_time:                Time.utc(2000, 1, 1, 8, 0, 0),
         timezone:                 'UTC',
         grace_window_hours:       24,
         non_business_day_behavior: 'skip',
@@ -173,6 +173,34 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
     end
   end
 
+  # ── recipient_label_cache (N+1 fix) ──────────────────────────────────────
+
+  describe '#recipient_label_cache' do
+    it 'preloads roles and users referenced across the given rules' do
+      role = Role.create!(name: "CacheRole_#{SecureRandom.hex(4)}", permissions: [], issues_visibility: 'all')
+      r1 = build_rule(recipient_modes: ["role:#{role.id}", 'project_members'])
+      r2 = build_rule(recipient_modes: ["user:#{user.id}", "role:#{role.id}"])
+
+      cache = helper.recipient_label_cache([r1, r2])
+      expect(cache[:roles][role.id]).to eq(role)
+      expect(cache[:users][user.id]).to eq(user)
+    end
+
+    it 'lets recipient_mode_label resolve names from the cache without a query' do
+      cache = helper.recipient_label_cache([build_rule(recipient_modes: ["user:#{user.id}"])])
+      # Any stray find_by would mean the cache was bypassed.
+      expect(User).not_to receive(:find_by)
+      label = helper.recipient_mode_label("user:#{user.id}", cache: cache)
+      expect(label).to include(user.name)
+    end
+
+    it 'falls back to the id when a cached record is missing' do
+      cache = { roles: {}, users: {} }
+      expect(helper.recipient_mode_label('user:99999', cache: cache)).to include('99999')
+      expect(helper.recipient_mode_label('role:88888', cache: cache)).to include('88888')
+    end
+  end
+
   # ── filter_summary ───────────────────────────────────────────────────────
 
   describe '#filter_summary' do
@@ -210,6 +238,26 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
       expect(summary).to include(I18n.t(:field_include_overdue))
       expect(summary).to include(',')
     end
+
+    it 'includes the since-last-run-created label when that flag is set' do
+      rule = build_rule(include_open: false, since_last_run_created: true)
+      expect(helper.filter_summary(rule)).to include(I18n.t(:filter_since_last_run_created))
+    end
+
+    it 'includes the since-last-run-updated label when that flag is set' do
+      rule = build_rule(include_open: false, since_last_run_updated: true)
+      expect(helper.filter_summary(rule)).to include(I18n.t(:filter_since_last_run_updated))
+    end
+  end
+
+  # ── status badges (i18n aria-label) ───────────────────────────────────────
+
+  describe '#digest_rule_status_badge' do
+    it 'renders the status badge with a localized aria-label' do
+      rule = build_rule(active: true)
+      html = helper.digest_rule_status_badge(rule)
+      expect(html).to include(I18n.t(:aria_rule_status, label: I18n.t(:status_active)))
+    end
   end
 
   # ── personalization_summary ──────────────────────────────────────────────
@@ -246,6 +294,7 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
   describe '#available_queries_for_project' do
     it 'returns an empty relation when issue_tracking is disabled' do
       project.enabled_modules.where(name: 'issue_tracking').delete_all
+      project.reload
       result = helper.available_queries_for_project(project)
       expect(result.to_a).to eq([])
     end
@@ -261,15 +310,39 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
       expect(result.map(&:id)).to include(public_query.id)
     end
 
-    it 'includes project-scoped private queries' do
+    it 'includes project-scoped private queries regardless of owner' do
+      owner = create(:user)
       private_query = IssueQuery.create!(
         name: "PrivQ_#{SecureRandom.hex(4)}",
         project: project,
         visibility: Query::VISIBILITY_PRIVATE,
-        user: user
+        user: owner
       )
       result = helper.available_queries_for_project(project)
       expect(result.map(&:id)).to include(private_query.id)
+    end
+
+    it 'includes global queries' do
+      global_query = IssueQuery.create!(
+        name: "GlobalQ_#{SecureRandom.hex(4)}",
+        project: nil,
+        visibility: Query::VISIBILITY_PUBLIC,
+        user: user
+      )
+      result = helper.available_queries_for_project(project)
+      expect(result.map(&:id)).to include(global_query.id)
+    end
+
+    it 'excludes queries scoped to another project' do
+      other_project = create(:project)
+      other_query = IssueQuery.create!(
+        name: "OtherProjQ_#{SecureRandom.hex(4)}",
+        project: other_project,
+        visibility: Query::VISIBILITY_PUBLIC,
+        user: user
+      )
+      result = helper.available_queries_for_project(project)
+      expect(result.map(&:id)).not_to include(other_query.id)
     end
   end
 

@@ -8,6 +8,7 @@ RedmineApp::Application.routes.draw do
       member do
         post :enable
         post :disable
+        post :preview
       end
     end
   end

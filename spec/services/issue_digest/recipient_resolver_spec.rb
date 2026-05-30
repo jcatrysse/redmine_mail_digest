@@ -102,6 +102,16 @@ RSpec.describe IssueDigest::RecipientResolver, type: :service do
         users = described_class.new(rule).resolve
         expect(users.count { |u| u.id == user_b.id }).to eq(1)
       end
+
+      it 'emits one Recipient per user with the union of their source modes' do
+        add_member(user_a)
+        add_member(user_b)
+        # user_b matches both project_members (:broad) and user:<id> (:broad).
+        recipients = described_class.new(rule).recipients
+        expect(recipients.count { |r| r.user.id == user_b.id }).to eq(1)
+        b = recipients.find { |r| r.user.id == user_b.id }
+        expect(b.modes).to contain_exactly(:broad)
+      end
     end
 
     context 'assignees / authors / watchers modes on a private project' do
@@ -166,7 +176,7 @@ RSpec.describe IssueDigest::RecipientResolver, type: :service do
                             recipient_modes: ['email:ghost@nowhere.example'])
         allow(Rails.logger).to receive(:warn)
         described_class.new(email_rule).resolve
-        expect(Rails.logger).to have_received(:warn).with(/ghost@nowhere\.example/)
+        expect(Rails.logger).to have_received(:warn).with(/g\*\*\*@nowhere\.example/)
       end
 
       it 'excludes a locked user found by email' do
@@ -187,6 +197,141 @@ RSpec.describe IssueDigest::RecipientResolver, type: :service do
         users = described_class.new(rule).resolve
         expect(users).to eq([])
       end
+    end
+
+    # Regression for the reported bug: a "new only / open issues" rule using the
+    # `assignees` mode resolved every historical assignee in the project
+    # (16 recipients, all with 0 matching issues) because recipient discovery ran
+    # against base_scope instead of the rule's *filtered* matching scope.
+    context 'assignees mode honours the rule filters (regression)' do
+      let!(:open_st)   { create(:issue_status, name: "Open_#{SecureRandom.hex(4)}", is_closed: false) }
+      let!(:closed_st) { create(:issue_status, name: "Closed_#{SecureRandom.hex(4)}", is_closed: true) }
+      let!(:tracker)   { t = create(:tracker, default_status: open_st); project.trackers << t; t }
+      let!(:priority)  { IssuePriority.find_by(is_default: true) || create(:issue_priority, is_default: true) }
+      let!(:assignee_open)   { create(:user) }
+      let!(:assignee_closed) { create(:user) }
+
+      before do
+        allow_any_instance_of(User).to receive(:deliver_security_notification)
+        allow_any_instance_of(Issue).to receive(:add_auto_watcher)
+        [assignee_open, assignee_closed].each { |u| add_member(u) }
+      end
+
+      def make_issue(status, assignee)
+        issue = create(:issue, project: project, tracker: tracker, priority: priority,
+                               status: open_st, author: assignee, assigned_to: assignee)
+        issue.reload.update_column(:status_id, status.id) if status != open_st
+        issue
+      end
+
+      it 'excludes assignees whose only issues do not match the rule filters' do
+        make_issue(open_st, assignee_open)
+        make_issue(closed_st, assignee_closed)
+
+        rule = create(:issue_digest_rule, project: project,
+                      recipient_modes: ['assignees'], include_open: true, include_closed: false)
+
+        users = described_class.new(rule).resolve
+        expect(users.map(&:id)).to eq([assignee_open.id])
+        expect(users.map(&:id)).not_to include(assignee_closed.id)
+      end
+
+      it 'resolves zero recipients when no issue matches the filters' do
+        make_issue(closed_st, assignee_closed)
+
+        rule = create(:issue_digest_rule, project: project,
+                      recipient_modes: ['assignees'], include_open: true, include_closed: false)
+
+        expect(described_class.new(rule).resolve).to eq([])
+      end
+
+      it 'tags each recipient with the source mode category via #recipients' do
+        make_issue(open_st, assignee_open)
+        rule = create(:issue_digest_rule, project: project,
+                      recipient_modes: ['assignees'], include_open: true)
+
+        recipients = described_class.new(rule).recipients
+        expect(recipients.map { |r| r.user.id }).to eq([assignee_open.id])
+        expect(recipients.first.modes).to contain_exactly(:assignees)
+      end
+
+      it 'deduplicates a user listed both as an assignee and a specific user' do
+        # Reproduces the original "assignees + specific user (Tim)" report: the
+        # same person must be a single recipient (one email), carrying both the
+        # :assignees and :broad source categories so the broad full-list wins.
+        make_issue(open_st, assignee_open)
+        rule = create(:issue_digest_rule, project: project,
+                      recipient_modes: ['assignees', "user:#{assignee_open.id}"],
+                      include_open: true)
+
+        recipients = described_class.new(rule).recipients
+        expect(recipients.count { |r| r.user.id == assignee_open.id }).to eq(1)
+        expect(recipients.first.modes).to contain_exactly(:assignees, :broad)
+      end
+    end
+
+    # S1: when the rule includes sub-projects, a recipient who can only view
+    # issues in a sub-project (not in the rule's own project) must still be
+    # eligible. Before the fix the eligibility gate checked the parent project
+    # only, silently dropping such recipients.
+    context 'sub-project recipients (include_subprojects)' do
+      let!(:parent_project) { create(:project) }
+      let!(:child_project)  { create(:project) }
+      let!(:sub_member)     { create(:user) }
+      let!(:tracker)        { t = create(:tracker); child_project.trackers << t; t }
+      let!(:priority)       { IssuePriority.find_by(is_default: true) || create(:issue_priority, is_default: true) }
+      let!(:open_st)        { create(:issue_status, name: "Open_#{SecureRandom.hex(4)}", is_closed: false) }
+
+      before do
+        allow_any_instance_of(User).to receive(:deliver_security_notification)
+        allow_any_instance_of(Issue).to receive(:add_auto_watcher)
+        child_project.set_parent!(parent_project)
+        # set_parent! rewrites the nested-set bounds in the DB; refresh the
+        # in-memory parent so its lft/rgt (used for the subtree scope) are current.
+        parent_project.reload
+        # sub_member belongs to the CHILD project only, not the parent.
+        Member.create!(principal: sub_member, project: child_project, roles: [role])
+      end
+
+      def child_issue(assignee)
+        create(:issue, project: child_project, tracker: tracker, status: open_st,
+                       priority: priority, author: assignee, assigned_to: assignee)
+      end
+
+      it 'includes a sub-project-only assignee when include_subprojects is on' do
+        child_issue(sub_member)
+        rule = create(:issue_digest_rule, project: parent_project,
+                      recipient_modes: ['assignees'], include_open: true,
+                      include_subprojects: true)
+        users = described_class.new(rule).resolve
+        expect(users.map(&:id)).to include(sub_member.id)
+      end
+
+      it 'excludes the sub-project-only assignee when include_subprojects is off' do
+        child_issue(sub_member)
+        rule = create(:issue_digest_rule, project: parent_project,
+                      recipient_modes: ['assignees'], include_open: true,
+                      include_subprojects: false)
+        users = described_class.new(rule).resolve
+        expect(users.map(&:id)).not_to include(sub_member.id)
+      end
+    end
+  end
+end
+
+RSpec.describe IssueDigest::RecipientResolver, type: :service do
+  before do
+    allow_any_instance_of(User).to receive(:deliver_security_notification)
+  end
+
+  describe 'email lookup logging' do
+    it 'redacts the local part of configured email recipients' do
+      project = create(:project)
+      user = create(:user)
+      rule = build(:issue_digest_rule, project: project, created_by: user)
+      resolver = described_class.new(rule)
+
+      expect(resolver.send(:redacted_email, 'alice@example.com')).to eq('a***@example.com')
     end
   end
 end

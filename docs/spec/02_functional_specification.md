@@ -1,4 +1,4 @@
-# Functional Specification — redmine_digest
+# Functional Specification — redmine_mail_digest
 
 ## 1. Digest Rule Lifecycle
 
@@ -152,7 +152,7 @@ next if updated == 0  # Window already claimed
 ```
 
 `FORCE=1` or `MANUAL=1` bypasses this check (does not check `last_schedule_key`).
-`FORCE=1` still updates `last_schedule_key` after processing to keep audit state consistent.
+`FORCE=1` bypasses the schedule-window idempotency guard for an explicit re-send; forced/manual runs do not persist a `schedule_key` on run records.
 
 ### 2.6 Business days only
 
@@ -363,9 +363,18 @@ If true: `Issue.visible(user).where("#{Project.table_name}.lft >= ? AND #{Projec
 
 ### 7.2 Filter application
 
-All filters are combined with AND:
+The `include_*` options are **inclusion** filters: each one ADDS its matching issues,
+so they are OR-combined into a single WHERE clause. Narrowing filters
+(`since_last_run_created`/`since_last_run_updated`, saved query, personalization)
+are then AND-combined on top.
 
-| Field | Filter condition |
+The two "since last run" flags are independent and cumulative: `since_last_run_created`
+keeps issues whose `created_on` is after the cutoff, `since_last_run_updated` keeps
+issues whose `updated_on` is after the cutoff, and the two conditions are OR-combined
+with each other (checking both reproduces the previous single-flag behaviour). The
+cutoff is `last_success_at`, falling back to the rule's `created_at` on the first run.
+
+| Field | Contributes (OR) |
 |-------|-----------------|
 | `include_open = true` | `status.is_closed = false` |
 | `include_closed = true` | `status.is_closed = true` |
@@ -374,13 +383,18 @@ All filters are combined with AND:
 | `include_recently_updated = true` | `updated_on >= CURRENT_TIMESTAMP - recently_updated_days * INTERVAL '1 day'` |
 | `include_recently_created = true` | `created_on >= CURRENT_TIMESTAMP - recently_created_days * INTERVAL '1 day'` |
 
-**Open/closed combination**: If both `include_open` and `include_closed` are true, no
-status filter is applied (all statuses included). If neither is true, the filter still
-applies the query or other filters; the effective result may be empty.
+Effective clause: `(c1 OR c2 OR … OR cN)` over every checked option. The status
+options (open/closed/overdue/due_soon) require the `statuses` join; the recency
+options reference the `issues` table only.
 
-**Overdue and due_soon**: These are subsets of open issues; they are OR-combined with
-`include_open` if both are checked. Implementation: build an OR condition:
-`(open_condition) OR (overdue_condition) OR (due_soon_condition)`.
+**No options checked**: no inclusion filter is applied — all project issues are
+included (then still subject to the narrowing filters).
+
+**Open + closed**: `open OR closed` already spans every status, so the result is
+equivalent to "all statuses".
+
+**Overdue and due_soon**: these are subsets of open issues, so checking them alongside
+`include_open` is redundant but harmless (the OR already covers them).
 
 ### 7.3 Query integration
 
@@ -391,23 +405,36 @@ If `query_id` is set:
 - Apply `query.base_scope` as an additional WHERE clause by intersecting the relation:
   `scope.merge(query.base_scope)` is not directly possible; instead extract the query's
   `statement` and append: `scope.where(query.statement)`.
-- If the query has been deleted: log a warning and skip the query filter; continue with
-  other filters. Record a warning in the run log.
+- If the query has been deleted, is not usable for the rule, or cannot be evaluated:
+  log a warning, record a warning in the run log, and block delivery for that
+  rule. The saved query is treated as part of the rule definition, so sending a
+  broader digest without it is unsafe.
 - The query's column configuration and sort order are not applied; only the WHERE clause
   (filters) is used.
 
 ### 7.4 Recipient-personalized filtering
 
-When the recipient mode includes `assignees` or the rule has `filter_assigned_to_recipient = true`:
-- The issue scope is further filtered: `where(assigned_to_id: user.id)`.
+Two independent mechanisms can narrow a recipient's issue scope:
 
-When `filter_watched_by_recipient = true`:
-- `where(id: user.watched_issue_ids)` (via Watcher join).
+**(a) Source-aware narrowing (from `recipient_modes`).** A recipient is tagged
+with the categories of the modes that selected them. When a recipient was
+selected *only* via personalized modes, their scope is narrowed to the issues
+backing those relationships, OR-combined across the matched modes:
+- `assignees` → `assigned_to_id = user.id`
+- `authors` → `author_id = user.id`
+- `watchers` → `id IN (issues watched by user)`
 
-When `filter_authored_by_recipient = true`:
-- `where(author_id: user.id)`.
+A recipient selected via any **broad** mode (`project_members`, `role:<id>`,
+`user:<id>`, `email:<addr>`) receives the full matching list, so no source
+narrowing is applied. If a recipient qualifies via both a personalized and a
+broad mode, the broad (full-list) behavior wins.
 
-These personalization flags are independent of recipient_modes.
+**(b) Explicit personalization flags (AND-combined, independent of modes):**
+- `filter_assigned_to_recipient = true` → `where(assigned_to_id: user.id)`
+- `filter_watched_by_recipient = true` → `where(id: user.watched_issue_ids)`
+- `filter_authored_by_recipient = true` → `where(author_id: user.id)`
+
+Mechanism (b) further narrows whatever (a) produced.
 
 ---
 
@@ -621,14 +648,16 @@ visibility logic is needed.
 
 ### EC-04: Query deleted after digest creation
 - Load: `IssueQuery.find_by(id: rule.query_id)` returns nil.
-- Log `WARN: query #{rule.query_id} not found for rule #{rule.id}; skipping query filter`.
-- Continue with remaining filters.
+- Log `WARN: query #{rule.query_id} not found for rule #{rule.id}; blocking delivery`.
+- Block delivery for that rule; do not send a broader digest without the saved
+  query filter.
 - Record a warning note in `issue_digest_runs.warning_message`.
 
 ### EC-05: Query visibility changes
 - The query is loaded without user context in the rake task (system context).
 - Check `query.visibility == Query::VISIBILITY_PUBLIC` or `query.project_id == rule.project_id`.
-- If neither: skip query filter and log a warning.
+- If neither: block delivery for that rule, log a warning, and record the warning
+  on the run.
 
 ### EC-06: User removed from project
 - `RecipientResolver` re-queries membership at resolution time.

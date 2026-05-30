@@ -32,7 +32,7 @@ module IssueDigest
       status = rule.status_label
       css    = STATUS_BADGE_CLASSES[status] || 'badge'
       label  = l(:"status_#{status}")
-      content_tag(:span, label, class: css, 'aria-label' => "Status: #{label}")
+      content_tag(:span, label, class: css, 'aria-label' => l(:aria_rule_status, label: label))
     end
 
     def format_run_status(run)
@@ -40,7 +40,7 @@ module IssueDigest
 
       css   = RUN_STATUS_BADGE_CLASSES[run.status] || 'badge'
       label = l(:"run_status_#{run.status}")
-      content_tag(:span, label, class: css, 'aria-label' => "Run status: #{label}")
+      content_tag(:span, label, class: css, 'aria-label' => l(:aria_run_status, label: label))
     end
 
     def schedule_description(rule)
@@ -75,25 +75,31 @@ module IssueDigest
       end
     end
 
-    def recipient_modes_description(rule)
+    def recipient_modes_description(rule, cache: nil)
       modes = Array(rule.recipient_modes)
       return '' if modes.empty?
 
-      modes.map { |m| recipient_mode_label(m) }.join(', ')
+      modes.map { |m| recipient_mode_label(m, cache: cache) }.join(', ')
     end
 
-    def recipient_mode_label(mode)
+    # Optional +cache+ (from #recipient_label_cache) lets list views resolve the
+    # role:/user: names without a per-rule find_by, avoiding an N+1 when many
+    # rules are shown. When nil, falls back to a direct lookup (fine for the
+    # single-rule show page).
+    def recipient_mode_label(mode, cache: nil)
       case mode
       when 'project_members' then l(:recipient_mode_project_members)
       when 'assignees'       then l(:recipient_mode_assignees)
       when 'authors'         then l(:recipient_mode_authors)
       when 'watchers'        then l(:recipient_mode_watchers)
       when /\Arole:(\d+)\z/
-        role = Role.find_by(id: Regexp.last_match(1))
-        "#{l(:recipient_mode_role)} #{role&.name || Regexp.last_match(1)}"
+        id   = Regexp.last_match(1).to_i
+        role = cache ? cache[:roles][id] : Role.find_by(id: id)
+        "#{l(:recipient_mode_role)} #{role&.name || id}"
       when /\Auser:(\d+)\z/
-        user = User.find_by(id: Regexp.last_match(1))
-        "#{l(:recipient_mode_users)} #{user&.name || Regexp.last_match(1)}"
+        id   = Regexp.last_match(1).to_i
+        user = cache ? cache[:users][id] : User.find_by(id: id)
+        "#{l(:recipient_mode_users)} #{user&.name || id}"
       when /\Aemail:(.+)\z/
         Regexp.last_match(1)
       else
@@ -101,8 +107,21 @@ module IssueDigest
       end
     end
 
+    # Builds an id => record lookup for the role:/user: recipient modes across
+    # the given rules, so a list view can render every rule's recipients with
+    # two queries total instead of one find_by per role/user per rule.
+    def recipient_label_cache(rules)
+      modes    = Array(rules).flat_map { |r| Array(r.recipient_modes) }
+      role_ids = modes.grep(/\Arole:\d+\z/).map { |m| m.delete_prefix('role:').to_i }.uniq
+      user_ids = modes.grep(/\Auser:\d+\z/).map { |m| m.delete_prefix('user:').to_i }.uniq
+      {
+        roles: role_ids.any? ? Role.where(id: role_ids).index_by(&:id) : {},
+        users: user_ids.any? ? User.where(id: user_ids).index_by(&:id) : {}
+      }
+    end
+
     def external_recipients_allowed?
-      ActiveModel::Type::Boolean.new.cast(Setting.plugin_redmine_digest['allow_external_recipients'])
+      ActiveModel::Type::Boolean.new.cast(Setting.plugin_redmine_mail_digest['allow_external_recipients'])
     end
 
     def project_members_for_digest(project)
@@ -112,11 +131,18 @@ module IssueDigest
           .order(:lastname, :firstname)
     end
 
+    def available_roles_for_digest
+      Role.givable
+    end
+
     def available_timezones
       # Memoized per request: ActiveSupport::TimeZone.all builds and sorts the
       # full zone list, which is wasted work if the form re-reads it.
+      # Sorted by UTC offset (standard time) so the dropdown reads west→east.
       @available_timezones ||=
-        ActiveSupport::TimeZone.all.map { |tz| [tz.name, tz.tzinfo.name] }.sort_by(&:first)
+        ActiveSupport::TimeZone.all
+          .sort_by(&:utc_offset)
+          .map { |tz| ["(UTC#{tz.formatted_offset}) #{tz.name}", tz.tzinfo.name] }
     end
 
     # Renders the native "+/-" toggle that sits next to the specific-users
@@ -139,16 +165,31 @@ module IssueDigest
     def available_queries_for_project(project)
       return IssueQuery.none unless project.module_enabled?(:issue_tracking)
 
-      IssueQuery.where('project_id = ? OR visibility = ?', project.id, Query::VISIBILITY_PUBLIC)
-                .includes(:user)
-                .order(:name)
+      # Show every global or project-scoped saved query regardless of its
+      # per-user visibility: digest rules are a shared, project-level config, so
+      # all managers must see the same list. This matches QueryAdapter's
+      # usability rule (global or same project) so the dropdown, the model
+      # validation, and the send-time filter never disagree.
+      #
+      # global_or_on_project is available on Redmine 5.1+. The fallback covers
+      # any future major version that may rename the scope.
+      scope = if IssueQuery.respond_to?(:global_or_on_project)
+                IssueQuery.global_or_on_project(project)
+              else
+                IssueQuery.where(project_id: [nil, project.id])
+              end
+      scope.includes(:user).order(:name)
     end
 
     # Returns a display label that disambiguates queries with identical names.
     # Format: "Query name [owner_login, public]" or "Query name [owner_login, project]"
     def query_dropdown_label(query)
-      vis   = query.visibility == Query::VISIBILITY_PUBLIC ? l(:label_public) : l(:label_mine)
-      owner = query.user&.login.presence || '—'
+      vis = case query.visibility
+            when Query::VISIBILITY_PUBLIC  then l(:label_public)
+            when Query::VISIBILITY_PRIVATE then l(:label_private, default: 'Private')
+            else l(:label_mine)
+            end
+      owner = query.user&.login.presence || l(:label_none)
       "#{query.name} [#{owner}, #{vis}]"
     end
 
@@ -189,7 +230,8 @@ module IssueDigest
       parts << l(:filter_recently_updated_summary, days: rule.recently_updated_days)  if rule.include_recently_updated?
       parts << l(:filter_recently_created_summary, days: rule.recently_created_days)  if rule.include_recently_created?
       parts << l(:field_include_subprojects)                                           if rule.include_subprojects?
-      parts << l(:filter_only_since_last_run)                                          if rule.respond_to?(:only_since_last_run?) && rule.only_since_last_run?
+      parts << l(:filter_since_last_run_created) if rule.respond_to?(:since_last_run_created?) && rule.since_last_run_created?
+      parts << l(:filter_since_last_run_updated) if rule.respond_to?(:since_last_run_updated?) && rule.since_last_run_updated?
       parts.empty? ? l(:text_no_active_filters) : parts.join(', ')
     end
 
@@ -225,11 +267,7 @@ module IssueDigest
       t = rule.send_time
       return '' if t.nil?
 
-      if t.respond_to?(:strftime)
-        t.strftime('%H:%M')
-      else
-        t.to_s
-      end
+      t.strftime('%H:%M')
     end
   end
 end

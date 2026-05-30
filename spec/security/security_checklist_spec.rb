@@ -22,13 +22,20 @@ RSpec.describe 'Security checklist', type: :request do
   let!(:rule_a) { create(:issue_digest_rule, project: project_a, name: "RuleA_#{SecureRandom.hex(4)}") }
   let!(:rule_b) { create(:issue_digest_rule, project: project_b, name: "RuleB_#{SecureRandom.hex(4)}") }
 
+  # Resolve the plugin's own root from this file's location rather than assuming
+  # a directory name. Redmine derives the plugin directory from the checkout
+  # folder (basename of the working copy), which is independent of the plugin
+  # identifier registered in init.rb, so hardcoding either name is fragile.
+  let(:plugin_root) { File.expand_path('../..', __dir__) }
+
   describe 'IDOR: rule scoped to project' do
-    it 'returns 404 when requesting rule_a under project_b' do
-      session = ActionDispatch::Integration::Session.new(Rails.application)
-      session.get "/login"
-      # Simulate Redmine session by setting User.current directly is hard;
-      # use the controller-level test which validates the same scope.
-      expect(IssueDigestRule.where(project_id: project_b.id, id: rule_a.id)).to be_empty
+    it 'project_rules scope raises RecordNotFound for cross-project access' do
+      # The controller's find_rule uses IssueDigestRule.where(project_id: @project.id).find(id).
+      # Verifies that looking up rule_a under project_b raises RecordNotFound,
+      # which the controller maps to a 404. HTTP-layer 404 coverage lives in
+      # spec/controllers/issue_digest_rules_controller_spec.rb.
+      scope = IssueDigestRule.where(project_id: project_b.id)
+      expect { scope.find(rule_a.id) }.to raise_error(ActiveRecord::RecordNotFound)
     end
   end
 
@@ -60,7 +67,7 @@ RSpec.describe 'Security checklist', type: :request do
     end
   end
 
-  describe 'QueryAdapter: invisible query is skipped' do
+  describe 'QueryAdapter: unusable query is warned about' do
     let(:admin)   { User.where(admin: true).first || create(:user, admin: true) }
     let(:other_project) { create(:project, is_public: false) }
     let!(:private_query) do
@@ -72,12 +79,12 @@ RSpec.describe 'Security checklist', type: :request do
       )
     end
 
-    it 'does not apply a query from another project that is not public' do
-      rule = create(:issue_digest_rule, project: project_a, query: private_query)
+    it 'does not apply a query that belongs to another project' do
+      rule = build(:issue_digest_rule, project: project_a, query: private_query)
       scope = Issue.all
       before_sql = scope.to_sql
       after_sql  = IssueDigest::QueryAdapter.new(rule).apply_to(scope).to_sql
-      # Scope should be unchanged because the query is not visible.
+      # Scope should be unchanged because the query is scoped to another project.
       expect(after_sql).to eq(before_sql)
     end
   end
@@ -94,14 +101,14 @@ RSpec.describe 'Security checklist', type: :request do
 
   describe 'Strong params: no permit!' do
     it 'controller does not use permit! anywhere' do
-      source = File.read(Rails.root.join('plugins', 'redmine_digest', 'app', 'controllers', 'issue_digest_rules_controller.rb'))
+      source = File.read(File.join(plugin_root, 'app', 'controllers', 'issue_digest_rules_controller.rb'))
       expect(source).not_to include('permit!')
     end
   end
 
   describe 'SQL safety: no string interpolation of user input' do
     it 'IssueResolver only interpolates trusted symbols (table/column names)' do
-      source = File.read(Rails.root.join('plugins', 'redmine_digest', 'app', 'services', 'issue_digest', 'issue_resolver.rb'))
+      source = File.read(File.join(plugin_root, 'app', 'services', 'issue_digest', 'issue_resolver.rb'))
       # Look for any quoted-string-with-#{} that does not use ? placeholders
       # following it. Already covered by code review; sanity-check that we
       # don't accidentally introduce `where("foo = '#{x}'")`-style code.

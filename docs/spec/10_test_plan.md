@@ -1,4 +1,4 @@
-# Test Plan — redmine_digest
+# Test Plan — redmine_mail_digest
 
 ## 1. Framework and Conventions
 

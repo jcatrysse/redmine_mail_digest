@@ -3,13 +3,22 @@
 class CreateIssueDigestRules < ActiveRecord::Migration[6.1]
   def change
     create_table :issue_digest_rules do |t|
-      t.references :project, null: false, foreign_key: { on_delete: :cascade }
+      # type: :integer — Redmine's core tables (projects, users) use legacy
+      # int(11) primary keys. Rails would otherwise create a bigint FK column,
+      # which MySQL rejects (errno 150) because a FK column must match the
+      # referenced key's type exactly. PostgreSQL tolerates the int/bigint
+      # mismatch, but MySQL does not, so we pin these FKs to :integer.
+      t.references :project, type: :integer, null: false, foreign_key: { on_delete: :cascade }
       t.string :name, null: false, limit: 255
       t.boolean :active, null: false, default: true
 
       # Scheduling
       t.string :schedule_type, null: false, limit: 30
-      t.text :schedule_config, null: false, default: '{}'
+      # No DB-level default: MySQL rejects a literal default on TEXT/BLOB/JSON
+      # columns ("BLOB, TEXT ... can't have a default value"). The model
+      # guarantees a non-null value via coerce_schedule_config instead, which
+      # keeps the schema portable across PostgreSQL, MySQL and SQLite.
+      t.text :schedule_config, null: false
       t.date :start_on
       t.date :end_on
       t.time :send_time
@@ -36,7 +45,9 @@ class CreateIssueDigestRules < ActiveRecord::Migration[6.1]
       t.boolean :filter_authored_by_recipient, null: false, default: false
 
       # Recipients and email
-      t.text :recipient_modes, null: false, default: '[]'
+      # No DB-level default (see schedule_config above): the model fills this via
+      # coerce_recipient_modes, and recipient_modes_valid enforces presence.
+      t.text :recipient_modes, null: false
       t.string :group_by, null: false, default: 'none', limit: 20
       t.boolean :send_empty, null: false, default: false
       t.string :email_subject, limit: 255
@@ -47,8 +58,8 @@ class CreateIssueDigestRules < ActiveRecord::Migration[6.1]
       t.datetime :last_success_at
 
       # Audit
-      t.references :created_by, null: false, foreign_key: { to_table: :users }
-      t.references :updated_by, foreign_key: { to_table: :users }
+      t.references :created_by, type: :integer, null: false, foreign_key: { to_table: :users }
+      t.references :updated_by, type: :integer, foreign_key: { to_table: :users }
 
       t.timestamps
     end

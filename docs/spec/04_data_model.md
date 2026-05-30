@@ -1,4 +1,4 @@
-# Data Model Specification — redmine_digest
+# Data Model Specification — redmine_mail_digest
 
 ## 1. Overview
 
@@ -51,6 +51,8 @@ CREATE TABLE issue_digest_rules (
   recently_updated_days      INTEGER      NOT NULL DEFAULT 7,
   include_recently_created   BOOLEAN      NOT NULL DEFAULT FALSE,
   recently_created_days      INTEGER      NOT NULL DEFAULT 7,
+  since_last_run_created     BOOLEAN      NOT NULL DEFAULT FALSE,
+  since_last_run_updated     BOOLEAN      NOT NULL DEFAULT FALSE,
   filter_assigned_to_recipient BOOLEAN    NOT NULL DEFAULT FALSE,
   filter_watched_by_recipient  BOOLEAN    NOT NULL DEFAULT FALSE,
   filter_authored_by_recipient BOOLEAN    NOT NULL DEFAULT FALSE,
@@ -97,6 +99,8 @@ CREATE TABLE issue_digest_rules (
 | `recently_updated_days` | int | NO | 7 | 1–365 | "Recently updated" window in days |
 | `include_recently_created` | boolean | NO | false | — | Include recently created issues |
 | `recently_created_days` | int | NO | 7 | 1–365 | "Recently created" window in days |
+| `since_last_run_created` | boolean | NO | false | — | Narrow to issues **created** after the last successful run |
+| `since_last_run_updated` | boolean | NO | false | — | Narrow to issues **updated** after the last successful run |
 | `filter_assigned_to_recipient` | boolean | NO | false | — | Per-recipient: only show assigned-to-recipient issues |
 | `filter_watched_by_recipient` | boolean | NO | false | — | Per-recipient: only show issues watched by recipient |
 | `filter_authored_by_recipient` | boolean | NO | false | — | Per-recipient: only show issues authored by recipient |

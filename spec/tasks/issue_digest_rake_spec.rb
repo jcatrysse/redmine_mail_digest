@@ -143,10 +143,31 @@ RSpec.describe 'redmine:issue_digest rake tasks' do
         .to change(IssueDigestRun, :count).by(1)
     end
 
-    it 'uses trigger=manual when MANUAL=1' do
+    it 'uses trigger=manual when MANUAL=1 is scoped to a specific RULE_ID' do
       ENV['MANUAL'] = '1'
+      ENV['RULE_ID'] = rule.id.to_s
       reenable('redmine:issue_digest:send').invoke
       expect(IssueDigestRun.last.trigger).to eq('manual')
+      expect(IssueDigestRun.last.issue_digest_rule_id).to eq(rule.id)
+    end
+
+    it 'with MANUAL=1 and no RULE_ID only processes manual schedule rules' do
+      manual_rule = create(:issue_digest_rule,
+                           project: project,
+                           schedule_type: 'manual',
+                           send_time: nil,
+                           schedule_config: {},
+                           recipient_modes: ["user:#{user.id}"],
+                           send_empty: true,
+                           active: true)
+      ENV['MANUAL'] = '1'
+
+      expect { reenable('redmine:issue_digest:send').invoke }
+        .to change(IssueDigestRun, :count).by(1)
+
+      expect(IssueDigestRun.last.trigger).to eq('manual')
+      expect(IssueDigestRun.last.issue_digest_rule_id).to eq(manual_rule.id)
+      expect(IssueDigestRun.where(issue_digest_rule_id: rule.id)).to be_empty
     end
 
     it 'in DRY_RUN mode writes no DB records and sends no mail' do
@@ -172,7 +193,7 @@ RSpec.describe 'redmine:issue_digest rake tasks' do
     before do
       # Stub the plugin setting (Agent 4 wires init.rb).
       allow(Setting).to receive(:respond_to?).and_call_original
-      # Ensure the rake task's `Setting.plugin_redmine_digest rescue {}` resolves to {}.
+      # Ensure the rake task's `Setting.plugin_redmine_mail_digest rescue {}` resolves to {}.
     end
 
     it 'deletes runs older than the retention window' do
@@ -195,7 +216,7 @@ RSpec.describe 'redmine:issue_digest rake tasks' do
 
     it 'retains all records when run_history_retention_days is 0 (keep forever)' do
       old_run = create(:issue_digest_run, issue_digest_rule: rule, started_at: 500.days.ago)
-      allow(Setting).to receive(:plugin_redmine_digest)
+      allow(Setting).to receive(:plugin_redmine_mail_digest)
         .and_return('run_history_retention_days' => 0)
 
       expect { reenable('redmine:issue_digest:cleanup').invoke }
@@ -205,7 +226,7 @@ RSpec.describe 'redmine:issue_digest rake tasks' do
 
     it 'retains all records when run_history_retention_days is missing from settings' do
       old_run = create(:issue_digest_run, issue_digest_rule: rule, started_at: 500.days.ago)
-      allow(Setting).to receive(:plugin_redmine_digest).and_return({})
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return({})
 
       expect { reenable('redmine:issue_digest:cleanup').invoke }
         .not_to change(IssueDigestRun, :count)

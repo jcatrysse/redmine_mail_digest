@@ -10,7 +10,7 @@ RSpec.describe IssueDigestMailer, type: :mailer do
   let!(:user)      { create(:user, admin: true, mail: 'recipient@example.com') }
   let!(:open_st)   { create(:issue_status, name: "Open_#{SecureRandom.hex(4)}", is_closed: false) }
   let!(:tracker)   { t = create(:tracker, default_status: open_st); project.trackers << t; t }
-  let!(:priority)  { create(:issue_priority, name: 'High', is_default: true) }
+  let!(:priority)  { IssuePriority.find_by(name: 'High') || create(:issue_priority, name: 'High', is_default: true) }
   let!(:role)      { Role.create!(name: "DigestMailerRole_#{SecureRandom.hex(4)}", permissions: [:view_issues]) }
 
   # Redmine validates that `assigned_to` is a member of the project (and that
@@ -323,6 +323,24 @@ RSpec.describe IssueDigestMailer, type: :mailer do
       expect {
         described_class.digest_email(rule, user, [issue], nil).deliver_now
       }.not_to raise_error
+    end
+  end
+end
+
+RSpec.describe IssueDigestMailer, type: :mailer do
+  describe 'digest base URL' do
+    it 'uses parsed host, port, and script_name from Redmine settings' do
+      allow(Setting).to receive(:respond_to?).and_call_original
+      allow(Setting).to receive(:respond_to?).with(:protocol).and_return(true)
+      allow(Setting).to receive(:respond_to?).with(:host_name).and_return(true)
+      allow(Setting).to receive(:protocol).and_return('https')
+      allow(Setting).to receive(:host_name).and_return('redmine.example.com:8443/redmine')
+
+      helper = Class.new do
+        include IssueDigestMailer::DigestHelper
+      end.new
+
+      expect(helper.base_url).to eq('https://redmine.example.com:8443/redmine')
     end
   end
 end

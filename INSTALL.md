@@ -1,4 +1,4 @@
-# Installing `redmine_digest`
+# Installing `redmine_mail_digest`
 
 A step-by-step installation guide. See `README.md` for usage, configuration,
 and operational guidance after install.
@@ -26,7 +26,7 @@ From the Redmine installation root:
 
 ```bash
 cd plugins
-git clone https://github.com/jcatrysse/redmine_digest.git
+git clone https://github.com/jcatrysse/redmine_mail_digest.git
 ```
 
 ## 2. Run migrations
@@ -108,10 +108,124 @@ is due right now — create a rule from the project UI and try again.
 
 ---
 
+## Migrating from `redmine_digest` (existing installations)
+
+This plugin was previously registered under the identifier `redmine_digest`.
+If you already run that earlier version, follow the steps below to switch to
+`redmine_mail_digest` **without losing any data**.
+
+Why this is safe: the database tables (`issue_digest_rules`,
+`issue_digest_runs`, `issue_digest_deliveries`) are named after the plugin's
+internal `issue_digest` namespace, **not** after the plugin identifier. The
+rename therefore touches only two pieces of Redmine bookkeeping:
+
+1. the plugin settings row (`settings.name = 'plugin_redmine_digest'`), and
+2. the plugin migration markers in `schema_migrations`
+   (`<n>-redmine_digest`), which Redmine writes as `<version>-<plugin_id>`.
+
+Your rules, run history and deliveries are left completely untouched.
+
+> ⚠️ **Do NOT** uninstall the old plugin with
+> `rake redmine:plugins:migrate NAME=redmine_digest VERSION=0`. That runs the
+> `down` migrations and **drops the `issue_digest_*` tables**, deleting every
+> rule and all run history. Use the in-place rename below instead.
+
+### 1. Back up the database
+
+```bash
+# PostgreSQL example
+pg_dump redmine_production > redmine_backup_$(date +%F).sql
+```
+
+### 2. Stop Redmine (or enter maintenance mode)
+
+Stop the app server so no request or cron run touches the plugin mid-migration.
+
+### 3. Rename the plugin directory
+
+The directory name **must** equal the new identifier. Redmine validates this at
+boot: a plugin registered as `redmine_mail_digest` from a directory named
+`redmine_digest` raises `Redmine::PluginNotFound` and the whole instance fails
+to start. Rename the directory so it matches:
+
+```bash
+cd /path/to/redmine/plugins
+# If you track the plugin with git and renamed the remote repository:
+mv redmine_digest redmine_mail_digest
+cd redmine_mail_digest && git pull   # pull the renamed release
+# (Alternatively: rm -rf redmine_digest && git clone <repo> redmine_mail_digest)
+```
+
+### 4. Rename the database bookkeeping
+
+Run **inside a transaction** against your Redmine database. Pick the snippet for
+your adapter; both statements are required.
+
+**PostgreSQL / MySQL / MariaDB:**
+
+```sql
+BEGIN;
+
+-- Preserve the configured global plugin settings.
+UPDATE settings
+   SET name = 'plugin_redmine_mail_digest'
+ WHERE name = 'plugin_redmine_digest';
+
+-- Re-point the plugin migration markers so Redmine knows migrations 1..7
+-- have already run and does not try to re-create existing tables.
+UPDATE schema_migrations
+   SET version = REPLACE(version, '-redmine_digest', '-redmine_mail_digest')
+ WHERE version LIKE '%-redmine_digest';
+
+COMMIT;
+```
+
+**SQLite:** the same two `UPDATE` statements work (wrap in
+`BEGIN;` / `COMMIT;`).
+
+### 5. Confirm migrations are settled
+
+```bash
+cd /path/to/redmine
+bundle exec rake redmine:plugins:migrate RAILS_ENV=production
+```
+
+This must report **no pending migrations** for `redmine_mail_digest`. If it
+tries to run `001_create_issue_digest_rules` (or fails with "table already
+exists"), step 4 did not match — recheck the `schema_migrations` rows:
+
+```sql
+SELECT version FROM schema_migrations WHERE version LIKE '%digest%';
+-- expect: 1-redmine_mail_digest … 7-redmine_mail_digest (no *-redmine_digest left)
+```
+
+### 6. Restart and verify
+
+```bash
+touch tmp/restart.txt
+```
+
+Then confirm:
+
+- **Administration → Plugins** lists **Redmine Mail Digest** (no duplicate, no
+  old entry).
+- **Administration → Plugins → Configure** still shows your previous settings
+  (max issues per email, retention days, external-recipient option).
+- A project's **Digest Rules** list still contains your existing rules and run
+  history.
+- A dry run sees your rules:
+  `bundle exec rake redmine:issue_digest:send DRY_RUN=1 VERBOSE=1 RAILS_ENV=production`
+
+> Note: this plugin ships no public assets, so there is nothing to clean up
+> under `public/plugin_assets/`. If you previously generated any, you may
+> remove the stale `public/plugin_assets/redmine_digest` directory.
+
+---
+
 ## Upgrading
 
 ```bash
-cd /path/to/redmine/plugins/redmine_digest
+cd /path/to/redmine/plugins/redmine_mail_digest
 git pull
 cd ../..
 bundle exec rake redmine:plugins:migrate RAILS_ENV=production
@@ -122,9 +236,9 @@ touch tmp/restart.txt
 
 ```bash
 cd /path/to/redmine
-bundle exec rake redmine:plugins:migrate NAME=redmine_digest VERSION=0 \
+bundle exec rake redmine:plugins:migrate NAME=redmine_mail_digest VERSION=0 \
   RAILS_ENV=production
-rm -rf plugins/redmine_digest
+rm -rf plugins/redmine_mail_digest
 touch tmp/restart.txt
 ```
 

@@ -2,12 +2,12 @@
 
 require_relative 'lib/issue_digest/projects_helper_patch'
 
-Redmine::Plugin.register :redmine_digest do
-  name        'Redmine Digest'
-  author      'redmine_digest contributors'
+Redmine::Plugin.register :redmine_mail_digest do
+  name        'Redmine Mail Digest'
+  author      'Jan Catrysse'
   description 'Scheduled issue digest emails for Redmine projects'
   version     '1.0.0'
-  url         'https://github.com/jcatrysse/redmine_digest'
+  url         'https://github.com/jcatrysse/redmine_mail_digest'
   author_url  'https://github.com/jcatrysse'
 
   requires_redmine version_or_higher: '5.1.0'
@@ -24,7 +24,7 @@ Redmine::Plugin.register :redmine_digest do
                { 'issue_digest_rules' => [:index, :show] },
                read: true
     permission :manage_digest_rules,
-               { 'issue_digest_rules' => [:new, :create, :edit, :update, :destroy, :enable, :disable] }
+               { 'issue_digest_rules' => [:new, :create, :edit, :update, :destroy, :enable, :disable, :preview] }
   end
 end
 

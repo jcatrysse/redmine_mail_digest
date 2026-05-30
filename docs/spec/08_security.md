@@ -1,4 +1,4 @@
-# Security and Permissions Specification — redmine_digest
+# Security and Permissions Specification — redmine_mail_digest
 
 ## 1. Permission Model
 
@@ -29,7 +29,7 @@ These are recommendations; actual assignment is per-project by the project manag
 
 ### 1.3 Global admin access
 
-Global plugin settings (`/settings/plugin/redmine_digest`) are protected by Redmine's
+Global plugin settings (`/settings/plugin/redmine_mail_digest`) are protected by Redmine's
 standard admin-only gate. Only users with `admin = true` can access this page. No
 plugin-specific code is needed; Redmine enforces this for all `/settings/plugin/*` routes.
 

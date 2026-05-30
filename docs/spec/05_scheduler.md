@@ -1,4 +1,4 @@
-# Scheduler and Rake Task Specification — redmine_digest
+# Scheduler and Rake Task Specification — redmine_mail_digest
 
 ## 1. Rake Task Overview
 
@@ -15,7 +15,7 @@ end
 
 ### File location
 
-`plugins/redmine_digest/lib/tasks/issue_digest.rake`
+`plugins/redmine_mail_digest/lib/tasks/issue_digest.rake`
 
 ---
 
@@ -35,7 +35,7 @@ generate and deliver emails; record run history.
 | `RULE_ID` | integer | — | Restrict execution to a specific digest rule by ID |
 | `VERBOSE` | `'1'` | — | Enable verbose output (rule names, recipient counts, issue counts) |
 | `FORCE` | `'1'` | — | Ignore schedule_key idempotency check (re-send even if already sent in window) |
-| `MANUAL` | `'1'` | — | Equivalent to `FORCE=1`; intended for manual/one-off sends; sets `trigger: 'manual'` in the run record |
+| `MANUAL` | `'1'` | — | Manual one-off mode. Without `RULE_ID`, only active `schedule_type=manual` rules are processed. With `RULE_ID`, that rule is processed manually regardless of schedule type. Sets `trigger: 'manual'` in the run record and bypasses schedule-window idempotency. |
 
 ### 2.3 Usage examples
 
@@ -58,8 +58,11 @@ bundle exec rake redmine:issue_digest:send VERBOSE=1 RAILS_ENV=production
 # Force re-send (ignore idempotency guard)
 bundle exec rake redmine:issue_digest:send RULE_ID=42 FORCE=1 RAILS_ENV=production
 
-# Manual one-off send for a 'manual' schedule_type rule
+# Manual one-off send for a specific rule
 bundle exec rake redmine:issue_digest:send RULE_ID=42 MANUAL=1 RAILS_ENV=production
+
+# Manual one-off send for all active manual schedule_type rules
+bundle exec rake redmine:issue_digest:send MANUAL=1 RAILS_ENV=production
 
 # Combined
 bundle exec rake redmine:issue_digest:send DRY_RUN=1 VERBOSE=1 RAILS_ENV=production
@@ -245,7 +248,7 @@ A rule fires at most once per scheduling window. The window is identified by its
 | INFO | `Rule #42: sent to user #7` |
 | INFO | `Rule #42: completed (success, 5 emails sent, 0 failed)` |
 | INFO | `Finished at 2026-05-27T08:00:03Z (3 rules, 15 emails, 0 failures)` |
-| WARN | `Rule #42: query #99 not found; skipping query filter` |
+| WARN | `Rule #42: query #99 not found; blocking delivery` |
 | WARN | `Rule #42: no recipients resolved; skipping` |
 | WARN | `Rule #42: user #7 has no email address; skipping` |
 | WARN | `Rule #42: user #7 is not active; skipping` |
@@ -298,7 +301,7 @@ Prune old run and delivery records according to the retention policy.
 ### Behavior
 
 ```ruby
-retention_days = Setting.plugin_redmine_digest['run_history_retention_days'].to_i
+retention_days = Setting.plugin_redmine_mail_digest['run_history_retention_days'].to_i
 cutoff = retention_days.days.ago
 
 IssueDigestRun

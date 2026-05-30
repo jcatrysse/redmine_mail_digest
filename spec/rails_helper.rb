@@ -44,4 +44,15 @@ RSpec.configure do |config|
 
   # Redmine plugin tests do not load Redmine's MiniTest fixtures by default;
   # specs that need them can opt in via fixtures(...).
+
+  # When tests run against an existing Redmine installation, Redmine's own
+  # notification callbacks on Issue fire real SMTP deliveries. Force test
+  # delivery mode and suppress the per-issue send_notification callback so
+  # create(:issue) never touches a real mail server.
+  config.before(:each) do
+    ActionMailer::Base.delivery_method   = :test
+    ActionMailer::Base.perform_deliveries = true
+    ActionMailer::Base.deliveries.clear
+    allow_any_instance_of(Issue).to receive(:send_notification)
+  end
 end

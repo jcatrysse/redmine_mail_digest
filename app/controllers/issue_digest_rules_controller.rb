@@ -3,27 +3,31 @@
 class IssueDigestRulesController < ApplicationController
   before_action :find_project
   before_action :authorize
-  before_action :find_rule, only: [:show, :edit, :update, :destroy, :enable, :disable]
+  before_action :find_rule, only: [:show, :edit, :update, :destroy, :enable, :disable, :preview]
 
   helper IssueDigest::DigestRulesHelper
 
   def index
     @rules = project_rules.order(:name)
-    rule_ids = @rules.map(&:id)
-    @latest_runs = if rule_ids.any?
-      max_ids = IssueDigestRun
-        .where(issue_digest_rule_id: rule_ids)
-        .group(:issue_digest_rule_id)
-        .maximum(:id)
-        .values
-      IssueDigestRun.where(id: max_ids).index_by(&:issue_digest_rule_id)
-    else
-      {}
-    end
+    @latest_runs = IssueDigest::RunLookup.latest_by_rule_id(@rules)
   end
 
   SHOW_DEFAULT_LIMIT = 20
   SHOW_ALL_LIMIT     = 500
+
+  # Keys that are meaningful for each schedule_type. Anything else is dropped so
+  # switching type (e.g. weekly → daily) does not leave stale keys behind in the
+  # serialized schedule_config, keeping stored config and diffs clean. Types not
+  # listed here (daily, monthly_last_day, manual) take no config keys at all.
+  SCHEDULE_CONFIG_KEYS = {
+    'weekdays'         => %w[days],
+    'weekly'           => %w[day],
+    'monthly_date'     => %w[day],
+    'interval_days'    => %w[every],
+    'interval_weeks'   => %w[every],
+    'interval_hours'   => %w[every from to days],
+    'interval_minutes' => %w[every from to days]
+  }.freeze
 
   def show
     @total_run_count = @rule.issue_digest_runs.count
@@ -66,7 +70,7 @@ class IssueDigestRulesController < ApplicationController
     if @rule.destroy
       flash[:notice] = l(:notice_issue_digest_rule_deleted)
     else
-      flash[:error] = l(:error_issue_digest_rule_not_saved)
+      flash[:error] = l(:error_issue_digest_rule_not_deleted)
     end
     redirect_to settings_project_path(@project, tab: 'digest_rules')
   end
@@ -87,6 +91,22 @@ class IssueDigestRulesController < ApplicationController
       flash[:error] = l(:error_issue_digest_rule_not_saved)
     end
     redirect_to settings_project_path(@project, tab: 'digest_rules')
+  end
+
+  # Dry-run preview: runs the exact same DigestSender path a real send would use
+  # (dry_run: true → no DB writes, no emails) and renders the planned per-recipient
+  # outcome. Only issue *counts* are shown, never issue titles, so the preview can
+  # never leak issues a viewer could not otherwise see. Gated by manage_digest_rules.
+  def preview
+    @summary = IssueDigest::DigestSender.new(@rule, dry_run: true, trigger: :dry_run, emit_stdout: false).send
+    user_ids = Array(@summary[:plans]).map { |p| p[:user_id] }.compact.uniq
+    # User#name is a Ruby-composed display name (firstname/lastname per the
+    # configured format), NOT a database column — so it cannot be plucked.
+    # Load the records and map id => name in Ruby.
+    @recipient_names = User.where(id: user_ids).each_with_object({}) { |u, h| h[u.id] = u.name }
+    respond_to do |format|
+      format.js
+    end
   end
 
   private
@@ -148,7 +168,7 @@ class IssueDigestRulesController < ApplicationController
       :include_due_soon, :due_soon_days,
       :include_recently_updated, :recently_updated_days,
       :include_recently_created, :recently_created_days,
-      :only_since_last_run,
+      :since_last_run_created, :since_last_run_updated,
       :filter_assigned_to_recipient, :filter_watched_by_recipient,
       :filter_authored_by_recipient,
       :overdue_min_days,
@@ -167,6 +187,7 @@ class IssueDigestRulesController < ApplicationController
     end
     merge_email_recipients(permitted)
     normalize_schedule_config(permitted)
+    clear_unused_schedule_fields(permitted)
     permitted
   end
 
@@ -193,7 +214,7 @@ class IssueDigestRulesController < ApplicationController
   end
 
   def external_recipients_allowed?
-    ActiveModel::Type::Boolean.new.cast(Setting.plugin_redmine_digest['allow_external_recipients'])
+    ActiveModel::Type::Boolean.new.cast(Setting.plugin_redmine_mail_digest['allow_external_recipients'])
   end
 
   # Coerce schedule_config nested integer fields from form strings to integers
@@ -224,6 +245,8 @@ class IssueDigestRulesController < ApplicationController
       config.delete('from') if config['from'].blank?
       config.delete('to')   if config['to'].blank?
     end
+    # Drop any keys not relevant to the selected schedule_type (e.g. a leftover
+    # 'day' after switching from weekly to daily).
   rescue ArgumentError, TypeError
     # Non-numeric value submitted — the specific key that failed is left as-is
     # (a string). The model validator will add the precise error code (e.g.
@@ -231,6 +254,18 @@ class IssueDigestRulesController < ApplicationController
     # plain Hash is always written back, preventing ActionController::Parameters
     # from reaching the model's is_a?(Hash) guard.
   ensure
-    permitted[:schedule_config] = config if config
+    if config
+      config = config.slice(*SCHEDULE_CONFIG_KEYS.fetch(permitted[:schedule_type], []))
+      permitted[:schedule_config] = config
+    end
+  end
+
+  # The form hides send_time (and grace_window_hours) via JS for schedule types
+  # that don't use them, but the hidden fields are still submitted. Clear them
+  # server-side so the DB stays clean when a rule is saved as manual or sub-daily.
+  def clear_unused_schedule_fields(permitted)
+    return unless %w[manual interval_hours interval_minutes].include?(permitted[:schedule_type].to_s)
+
+    permitted[:send_time] = nil
   end
 end

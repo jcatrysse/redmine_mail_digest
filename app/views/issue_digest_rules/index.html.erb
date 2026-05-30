@@ -18,15 +18,15 @@
         <th scope="col"><%= l(:field_schedule_type) %></th>
         <th scope="col"><%= l(:field_recipient_modes) %></th>
         <th scope="col"><%= l(:field_status) %></th>
-        <th scope="col"><%= l(:label_run_history) %></th>
-        <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
-          <th scope="col"></th>
-        <% end %>
+        <th scope="col"><%= l(:label_run_history_last) %></th>
+        <th scope="col"></th>
       </tr>
     </thead>
     <tbody>
+      <% label_cache = recipient_label_cache(@rules) %>
       <% @rules.each do |rule| %>
-        <%= render partial: 'rule_row', locals: { rule: rule, latest_run: @latest_runs[rule.id] } %>
+        <%= render partial: 'rule_row',
+                   locals: { rule: rule, latest_run: @latest_runs[rule.id], label_cache: label_cache } %>
       <% end %>
     </tbody>
   </table>

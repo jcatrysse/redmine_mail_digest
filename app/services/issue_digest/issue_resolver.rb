@@ -2,9 +2,15 @@
 
 module IssueDigest
   class IssueResolver
-    def initialize(rule, user: nil)
+    # recipient_modes: a Set of personalization categories (:assignees,
+    # :authors, :watchers, :broad) describing *why* this user is a recipient.
+    # When present (and not :broad), the issue scope is narrowed to the issues
+    # that match those relationships. nil keeps the legacy behavior (only the
+    # explicit filter_* flags personalize the scope).
+    def initialize(rule, user: nil, recipient_modes: nil)
       @rule = rule
       @user = user
+      @recipient_modes = recipient_modes
     end
 
     # Returns a scoped relation of issues visible to @user matching the rule's filters.
@@ -49,14 +55,13 @@ module IssueDigest
 
     def build_scope
       scope = base_scope
-      scope = apply_status_filters(scope)
-      scope = apply_date_filters(scope)
+      scope = apply_match_filters(scope)
       scope = apply_since_last_run_filter(scope)
       scope = apply_personalization_filters(scope)
       adapter = IssueDigest::QueryAdapter.new(@rule)
       scope   = adapter.apply_to(scope)
       @query_adapter_warning = adapter.warning
-      scope = scope.order(Arel.sql("#{Issue.table_name}.due_date ASC NULLS LAST, #{Issue.table_name}.id ASC"))
+      scope = scope.order(Arel.sql(portable_due_date_order_sql))
       scope
     end
 
@@ -70,44 +75,83 @@ module IssueDigest
 
     private
 
-    def apply_status_filters(scope)
-      open   = @rule.include_open?
-      closed = @rule.include_closed?
+    # Inclusion ("Include …") filters are additive: every checked option ADDS
+    # its matching issues to the digest, so they are OR-combined into a single
+    # WHERE clause. Status options (open/closed/overdue/due_soon) need the
+    # statuses join; the recency options (updated/created) reference the issues
+    # table only. Leaving everything unchecked returns all project issues.
+    #
+    # Narrowing happens elsewhere (since_last_run_created/updated, saved query,
+    # personalization) and is AND-combined on top of this result.
+    def apply_match_filters(scope)
+      status_conditions = []
+      status_conditions << open_condition     if @rule.include_open?
+      status_conditions << closed_condition   if @rule.include_closed?
+      status_conditions << overdue_condition  if @rule.include_overdue?
+      status_conditions << due_soon_condition if @rule.include_due_soon?
 
-      # Build status conditions
-      conditions = []
-      conditions << open_condition   if open
-      conditions << closed_condition if closed
-      conditions << overdue_condition if @rule.include_overdue?
-      conditions << due_soon_condition if @rule.include_due_soon?
+      conditions = status_conditions.dup
+      conditions << recently_updated_condition if @rule.include_recently_updated?
+      conditions << recently_created_condition if @rule.include_recently_created?
 
       return scope if conditions.empty?
 
-      # If both open and closed are selected → no status filter (all statuses)
-      return scope if open && closed && !@rule.include_overdue? && !@rule.include_due_soon?
-
-      scope.joins(:status).where(conditions.reduce(:or))
+      scope = scope.joins(:status) if status_conditions.any?
+      scope.where(conditions.reduce(:or))
     end
 
-    def apply_date_filters(scope)
-      scope = scope.where(recently_updated_condition) if @rule.include_recently_updated?
-      scope = scope.where(recently_created_condition) if @rule.include_recently_created?
-      scope
-    end
-
+    # Cumulative "since last run" narrowing. The two flags are independent and
+    # OR-combined: created-only, updated-only, or both (checking both reproduces
+    # the legacy single-flag behaviour). The cutoff is the last successful run
+    # (falling back to the rule's creation time on the very first run).
     def apply_since_last_run_filter(scope)
-      return scope unless @rule.only_since_last_run?
+      t = Issue.table_name
+      conditions = []
+      conditions << "#{t}.created_on > :cutoff" if @rule.since_last_run_created?
+      conditions << "#{t}.updated_on > :cutoff" if @rule.since_last_run_updated?
+      return scope if conditions.empty?
 
       cutoff = @rule.last_success_at || @rule.created_at
       return scope if cutoff.nil?
 
-      t = Issue.table_name
-      scope.where("#{t}.created_on > ? OR #{t}.updated_on > ?", cutoff, cutoff)
+      scope.where(conditions.join(' OR '), cutoff: cutoff)
     end
 
     def apply_personalization_filters(scope)
       return scope unless @user
 
+      scope = apply_source_personalization(scope)
+      scope = apply_flag_personalization(scope)
+      scope
+    end
+
+    # Source-aware narrowing (spec §7.4): when a recipient was selected because
+    # they are an assignee/author/watcher of matching issues, their digest is
+    # limited to the issues backing that relationship. Multiple source modes are
+    # OR-combined (e.g. assignee OR watcher). A recipient selected via any broad
+    # mode (project members, role, specific user, email) gets the full matching
+    # list, so no source narrowing is applied.
+    def apply_source_personalization(scope)
+      modes = @recipient_modes
+      return scope if modes.blank?
+      return scope if modes.include?(:broad)
+
+      issues = Issue.arel_table
+      conditions = []
+      conditions << issues[:assigned_to_id].eq(@user.id) if modes.include?(:assignees)
+      conditions << issues[:author_id].eq(@user.id)      if modes.include?(:authors)
+      if modes.include?(:watchers)
+        watched = Watcher.where(watchable_type: 'Issue', user_id: @user.id).select(:watchable_id)
+        conditions << issues[:id].in(watched.arel)
+      end
+      return scope if conditions.empty?
+
+      scope.where(conditions.reduce(:or))
+    end
+
+    # Explicit personalization toggles, independent of recipient_modes
+    # (spec §7.4). AND-combined: each checked flag narrows the scope further.
+    def apply_flag_personalization(scope)
       scope = scope.where(assigned_to_id: @user.id) if @rule.filter_assigned_to_recipient?
 
       if @rule.filter_watched_by_recipient?
@@ -118,6 +162,14 @@ module IssueDigest
       scope = scope.where(author_id: @user.id) if @rule.filter_authored_by_recipient?
 
       scope
+    end
+
+    def portable_due_date_order_sql
+      table = Issue.table_name
+      # `NULLS LAST` is PostgreSQL-specific. Ordering by the boolean IS NULL
+      # expression first is supported by PostgreSQL, MySQL, and SQLite and keeps
+      # undated issues after dated issues on every supported Redmine database.
+      "#{table}.due_date IS NULL ASC, #{table}.due_date ASC, #{table}.id ASC"
     end
 
     def open_condition
@@ -151,12 +203,12 @@ module IssueDigest
 
     def recently_updated_condition
       days = @rule.recently_updated_days.to_i
-      "#{Issue.table_name}.updated_on >= #{ActiveRecord::Base.connection.quote(days.days.ago)}"
+      Issue.arel_table[:updated_on].gteq(days.days.ago)
     end
 
     def recently_created_condition
       days = @rule.recently_created_days.to_i
-      "#{Issue.table_name}.created_on >= #{ActiveRecord::Base.connection.quote(days.days.ago)}"
+      Issue.arel_table[:created_on].gteq(days.days.ago)
     end
   end
 end

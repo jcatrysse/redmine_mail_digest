@@ -1,4 +1,4 @@
-# Multi-Agent Implementation Plan — redmine_digest
+# Multi-Agent Implementation Plan — redmine_mail_digest
 
 ## Overview
 
@@ -226,7 +226,7 @@ spec/services/issue_digest/digest_sender_spec.rb
 init.rb
 config/routes.rb
 config/locales/en.yml
-lib/redmine_digest/version.rb
+lib/redmine_mail_digest/version.rb
 app/controllers/issue_digest/digest_rules_controller.rb
 app/helpers/issue_digest/digest_rules_helper.rb
 app/views/issue_digest/digest_rules/index.html.erb
@@ -425,7 +425,7 @@ spec/services/issue_digest/recipient_resolver_spec.rb  (if not complete)
 - Agents 1–3 and 5 produce partial test files; Agent 7 fills remaining gaps.
 
 ### Acceptance criteria
-- `bundle exec rspec plugins/redmine_digest/spec` exits 0.
+- `bundle exec rspec plugins/redmine_mail_digest/spec` exits 0.
 - No pending or skipped tests without documented reason.
 - Timezone tests cover UTC, UTC+2 (summer), UTC+1 (winter), and DST boundary cases.
 - Idempotency tests prove no double-sends under concurrent conditions.
@@ -463,7 +463,7 @@ spec/services/issue_digest/recipient_resolver_spec.rb  (if not complete)
 README.md
 CHANGELOG.md
 INSTALL.md
-lib/redmine_digest/version.rb  (set to 1.0.0)
+lib/redmine_mail_digest/version.rb  (set to 1.0.0)
 init.rb  (final review)
 .github/workflows/rspec-61.yml  (verify is correct)
 .github/workflows/rspec-51.yml  (verify is correct)
@@ -496,7 +496,7 @@ init.rb  (final review)
 - CI environment differences (different Ruby versions) may expose compatibility bugs.
 
 ### Handoff notes
-- Version 1.0.0 should be set only when all tests pass.
+- Version 1.0.0should be set only when all tests pass.
 - DO NOT add the plugin to rubygems.org or any public index until security review is complete.
 
 ---

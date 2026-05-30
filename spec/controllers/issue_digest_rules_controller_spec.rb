@@ -8,7 +8,7 @@ RSpec.describe IssueDigestRulesController, type: :controller do
   let!(:role) do
     create_role = Role.find_by(name: 'DigestTester') || Role.new(name: 'DigestTester')
     create_role.assign_attributes(
-      permissions: [:view_digest_rules, :manage_digest_rules],
+      permissions: [:view_digest_rules, :manage_digest_rules, :view_issues],
       issues_visibility: 'all'
     )
     create_role.save!(validate: false)
@@ -214,23 +214,40 @@ RSpec.describe IssueDigestRulesController, type: :controller do
     end
   end
 
+
+  describe 'GET #new / #edit — role recipients' do
+    it 'renders role recipient checkboxes' do
+      get :new, params: { project_id: project.id }
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('value="role:')
+      expect(response.body).to include(role.name)
+    end
+
+    it 'persists selected role recipient modes' do
+      params = valid_params.merge(recipient_modes: ['project_members', "role:#{role.id}"])
+      post :create, params: { project_id: project.id, issue_digest_rule: params }
+      expect(response).to redirect_to(settings_project_path(project, tab: 'digest_rules'))
+      expect(IssueDigestRule.order(:id).last.recipient_modes).to include("role:#{role.id}")
+    end
+  end
+
   describe 'GET #new / #edit — "Specific email addresses" field gated by allow_external_recipients' do
     let(:rule) { create(:issue_digest_rule, project: project, created_by: user) }
 
     it 'shows the email field when allow_external_recipients is true' do
-      allow(Setting).to receive(:plugin_redmine_digest).and_return('allow_external_recipients' => '1')
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return('allow_external_recipients' => '1')
       get :new, params: { project_id: project.id }
       expect(response.body).to include('id="issue_digest_rule_recipient_email_addresses"')
     end
 
     it 'hides the email field when allow_external_recipients is false' do
-      allow(Setting).to receive(:plugin_redmine_digest).and_return('allow_external_recipients' => '0')
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return('allow_external_recipients' => '0')
       get :new, params: { project_id: project.id }
       expect(response.body).not_to include('id="issue_digest_rule_recipient_email_addresses"')
     end
 
     it 'hides the email field when allow_external_recipients is absent (default off)' do
-      allow(Setting).to receive(:plugin_redmine_digest).and_return({})
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return({})
       get :new, params: { project_id: project.id }
       expect(response.body).not_to include('id="issue_digest_rule_recipient_email_addresses"')
     end
@@ -238,7 +255,7 @@ RSpec.describe IssueDigestRulesController, type: :controller do
 
   describe 'POST #create — email recipients gated by allow_external_recipients' do
     it 'ignores recipient_email_addresses when allow_external_recipients is false' do
-      allow(Setting).to receive(:plugin_redmine_digest).and_return('allow_external_recipients' => '0')
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return('allow_external_recipients' => '0')
       params = valid_params.merge(recipient_email_addresses: "user@example.com")
       post :create, params: { project_id: project.id, issue_digest_rule: params }
       rule = IssueDigestRule.order(:id).last
@@ -246,7 +263,7 @@ RSpec.describe IssueDigestRulesController, type: :controller do
     end
 
     it 'strips existing email: modes from recipient_modes when allow_external_recipients is false (CSRF / crafted request protection)' do
-      allow(Setting).to receive(:plugin_redmine_digest).and_return('allow_external_recipients' => '0')
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return('allow_external_recipients' => '0')
       crafted_modes = ['project_members', 'email:attacker@example.com']
       params = valid_params.merge(recipient_modes: crafted_modes)
       post :create, params: { project_id: project.id, issue_digest_rule: params }
@@ -256,7 +273,7 @@ RSpec.describe IssueDigestRulesController, type: :controller do
     end
 
     it 'merges recipient_email_addresses into recipient_modes when allow_external_recipients is true' do
-      allow(Setting).to receive(:plugin_redmine_digest).and_return('allow_external_recipients' => '1')
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return('allow_external_recipients' => '1')
       params = valid_params.merge(recipient_email_addresses: "user@example.com")
       post :create, params: { project_id: project.id, issue_digest_rule: params }
       rule = IssueDigestRule.order(:id).last
@@ -327,6 +344,58 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       post :disable, params: { project_id: project.id, id: rule.id }
       expect(rule.reload.active).to be false
       expect(response).to redirect_to(settings_project_path(project, tab: 'digest_rules'))
+    end
+  end
+
+  describe 'POST #preview (dry-run)' do
+    let!(:rule) { create(:issue_digest_rule, project: project, created_by: user, recipient_modes: ['project_members'], send_empty: true) }
+
+    it 'runs a dry-run preview without writing runs/deliveries or sending mail' do
+      expect {
+        post :preview, params: { project_id: project.id, id: rule.id }, format: :js
+      }.to change(IssueDigestRun, :count).by(0)
+       .and change(IssueDigestDelivery, :count).by(0)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'renders the preview panel with per-recipient outcome counts' do
+      # The rule's creator is a project member, so project_members resolves to at
+      # least one recipient; send_empty=true means a "would send" outcome.
+      post :preview, params: { project_id: project.id, id: rule.id }, format: :js
+      expect(response.body).to include('digest-preview')
+      expect(response.body).to include(I18n.t(:label_digest_preview))
+    end
+
+    it 'resolves and renders the recipient display name and outcome (regression: User#name is not a DB column)' do
+      # The manager role grants view_issues, so the rule creator is an eligible
+      # project_members recipient. This exercises the id => name mapping that a
+      # naive pluck(:id, :name) would break, since name is a composed method.
+      post :preview, params: { project_id: project.id, id: rule.id }, format: :js
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(user.name)
+      expect(response.body).to include(I18n.t(:digest_preview_would_send, count: 0))
+    end
+
+    it 'returns 404 for a rule in another project (IDOR)' do
+      other_rule = create(:issue_digest_rule, project: other_project, created_by: user)
+      post :preview, params: { project_id: project.id, id: other_rule.id }, format: :js
+      expect(response).to have_http_status(:not_found)
+    end
+
+    context 'as a viewer without manage permission' do
+      let!(:viewer) { create(:user) }
+
+      before do
+        Member.create!(project: project, user: viewer, roles: [non_manager_role])
+        User.current = viewer
+        allow(controller).to receive(:find_current_user).and_return(viewer)
+        allow(User).to receive(:current).and_return(viewer)
+      end
+
+      it 'is forbidden (preview requires manage_digest_rules)' do
+        post :preview, params: { project_id: project.id, id: rule.id }, format: :js
+        expect(response).to have_http_status(:forbidden)
+      end
     end
   end
 
@@ -403,6 +472,47 @@ RSpec.describe IssueDigestRulesController, type: :controller do
         post :create, params: { project_id: project.id, issue_digest_rule: params }
       }.not_to change(IssueDigestRule, :count)
       expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
+  describe 'GET #new — recipient relationship hint (regression: tooltip → visible hint)' do
+    it 'shows the relationship-mode explanation as visible help text, not a title-only icon' do
+      get :new, params: { project_id: project.id }
+      expect(response).to have_http_status(:ok)
+      # Apostrophe-free substring so the assertion is stable regardless of how
+      # the Redmine version HTML-escapes the rendered hint.
+      expect(response.body).to include('These modes pick recipients from the matching issues')
+      # The dropped, version-fragile info icon was an icon-only span whose only
+      # affordance was a native title tooltip. Ensure no such element remains.
+      expect(response.body).not_to match(/class="icon-only"[^>]*title=/)
+    end
+
+    it 'no longer appends "(of matching issues)" to the assignees label' do
+      get :new, params: { project_id: project.id }
+      expect(response.body).to include(I18n.t(:recipient_mode_assignees))
+      expect(response.body).not_to include('(of matching issues)')
+    end
+  end
+
+  describe 'POST #create — schedule_config pruning (N1)' do
+    it 'drops schedule_config keys not relevant to the selected schedule_type' do
+      params = valid_params.merge(
+        schedule_type: 'daily',
+        schedule_config: { 'day' => '5', 'every' => '3', 'days' => ['1'] }
+      )
+      post :create, params: { project_id: project.id, issue_digest_rule: params }
+      expect(response).to redirect_to(settings_project_path(project, tab: 'digest_rules'))
+      expect(IssueDigestRule.order(:id).last.schedule_config).to eq({})
+    end
+
+    it 'keeps only the relevant key when the schedule_type is weekly' do
+      params = valid_params.merge(
+        schedule_type: 'weekly',
+        schedule_config: { 'day' => '5', 'every' => '3' }
+      )
+      post :create, params: { project_id: project.id, issue_digest_rule: params }
+      expect(response).to redirect_to(settings_project_path(project, tab: 'digest_rules'))
+      expect(IssueDigestRule.order(:id).last.schedule_config).to eq({ 'day' => 5 })
     end
   end
 end

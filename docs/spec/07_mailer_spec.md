@@ -1,4 +1,4 @@
-# Mailer Specification — redmine_digest
+# Mailer Specification — redmine_mail_digest
 
 ## 1. Mailer Class
 
@@ -325,7 +325,7 @@ HTML footer (as described in section 6).
 All email strings must be localizable:
 
 ```yaml
-redmine_digest:
+redmine_mail_digest:
   mailer:
     subject_default: "[%{project}] %{rule_name} — %{date}"
     heading: "%{project} — %{rule_name}"

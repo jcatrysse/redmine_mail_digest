@@ -44,13 +44,12 @@ module IssueDigest
         return true
       end
 
-      # For all other types: derive the canonical period date, shift to execution date.
-      canonical = canonical_period_date(local_date, config)
+      # For all other types: derive the canonical period date, then shift to
+      # the execution date. Weekend shifts can cross period boundaries (for
+      # example monthly_last_day on Sunday shifted to Monday in the next
+      # month), so do not derive the canonical date only from local_date.
+      canonical = due_canonical_date(local_date, config)
       return false if canonical.nil?
-
-      execution = execution_date(canonical)
-      return false if execution.nil?
-      return false if execution != local_date
 
       return false unless within_grace_window?(local_time, local_date, tz)
 
@@ -71,7 +70,11 @@ module IssueDigest
 
       tz         = @time.in_time_zone(@rule.timezone.presence || 'UTC')
       local_date = tz.to_date
-      canonical  = @rule.schedule_type == 'weekdays' ? local_date : canonical_period_date(local_date, config)
+      canonical  = if @rule.schedule_type == 'weekdays'
+                     local_date
+                   else
+                     due_canonical_date(local_date, config) || canonical_period_date(local_date, config)
+                   end
       compute_schedule_key_for(canonical, config)
     rescue StandardError
       nil
@@ -154,8 +157,7 @@ module IssueDigest
       if @rule.start_on
         @rule.start_on.in_time_zone(tz).beginning_of_day
       else
-        created = @rule.respond_to?(:created_at) ? @rule.created_at : nil
-        base    = created || @time
+        base = @rule.created_at || @time
         base.in_time_zone(tz).beginning_of_day
       end
     end
@@ -232,6 +234,25 @@ module IssueDigest
       @rule.start_on || @rule.created_at.to_date
     end
 
+    # Returns the canonical schedule date that should execute on +local_date+.
+    # Weekend shifting can move an occurrence across a week/month boundary, so
+    # evaluate nearby canonical dates rather than only the current local date.
+    def due_canonical_date(local_date, config)
+      candidate_canonical_dates(local_date, config).find do |canonical|
+        execution_date(canonical) == local_date
+      end
+    end
+
+    def candidate_canonical_dates(local_date, config)
+      dates = if @rule.business_days_only? && @rule.schedule_type != 'weekdays'
+                [0, -1, 1, -2, 2].map { |offset| local_date + offset }
+              else
+                [local_date]
+              end
+
+      dates.filter_map { |date| canonical_period_date(date, config) }.uniq
+    end
+
     # Applies business-day shift to get the actual execution date.
     # Returns nil for 'skip' when canonical falls on a weekend.
     def execution_date(canonical)
@@ -256,7 +277,7 @@ module IssueDigest
       window_open = local_date.in_time_zone(tz) + seconds.seconds
       window_close = window_open + @rule.grace_window_hours.to_i.hours
 
-      @time >= window_open && @time <= window_close
+      @time.between?(window_open, window_close)
     end
 
     def compute_schedule_key_for(date, config)

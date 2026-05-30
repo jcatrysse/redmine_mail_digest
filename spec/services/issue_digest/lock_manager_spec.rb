@@ -33,22 +33,26 @@ RSpec.describe IssueDigest::LockManager, type: :service do
     end
 
     context 'PostgreSQL advisory lock' do
-      let(:pg_result) { [{ 'pg_try_advisory_xact_lock' => true }] }
-      let(:pg_false)  { [{ 'pg_try_advisory_xact_lock' => false }] }
+      let(:pg_acquired) { [{ 'pg_try_advisory_lock' => true }] }
+      let(:pg_busy)     { [{ 'pg_try_advisory_lock' => false }] }
+      let(:pg_unlock)   { [{ 'pg_advisory_unlock' => true }] }
 
       before do
         allow(ActiveRecord::Base.connection).to receive(:adapter_name).and_return('PostgreSQL')
-        allow(ActiveRecord::Base.connection).to receive(:transaction).and_yield
       end
 
       it 'executes the block when lock is acquired' do
-        allow(ActiveRecord::Base.connection).to receive(:execute).and_return(pg_result)
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/pg_try_advisory_lock/).and_return(pg_acquired)
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/pg_advisory_unlock/).and_return(pg_unlock)
         result = described_class.with_lock { :pg_executed }
         expect(result).to eq(:pg_executed)
       end
 
       it 'returns false and logs a warning when lock is not acquired' do
-        allow(ActiveRecord::Base.connection).to receive(:execute).and_return(pg_false)
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/pg_try_advisory_lock/).and_return(pg_busy)
         expect(Rails.logger).to receive(:warn).with(/Could not acquire advisory lock/)
         result = described_class.with_lock { :should_not_run }
         expect(result).to be false

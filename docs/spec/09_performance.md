@@ -1,4 +1,4 @@
-# Performance Specification — redmine_digest
+# Performance Specification — redmine_mail_digest
 
 ## 1. Expected Query Patterns
 
@@ -117,7 +117,7 @@ For v1, document a soft limit: "Performance untested above 500 active rules."
 ### 4.1 Maximum issues per email (hard cap)
 
 ```ruby
-MAX_ISSUES_PER_EMAIL = Setting.plugin_redmine_digest['max_issues_per_email'].to_i.clamp(1, 5000)
+MAX_ISSUES_PER_EMAIL = Setting.plugin_redmine_mail_digest['max_issues_per_email'].to_i.clamp(1, 5000)
 # Default: 500
 ```
 

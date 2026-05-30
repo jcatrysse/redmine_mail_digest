@@ -21,8 +21,8 @@
 </head>
 <body>
   <div class="email-header">
-    <h2><%= I18n.t('redmine_digest.mailer.heading', project: @project.name, rule_name: @rule.name) %></h2>
-    <p><%= I18n.t('redmine_digest.mailer.date_label') %>: <%= @date.strftime('%Y-%m-%d') %></p>
+    <h2><%= I18n.t('redmine_mail_digest.mailer.heading', project: @project.name, rule_name: @rule.name) %></h2>
+    <p><%= I18n.t('redmine_mail_digest.mailer.date_label') %>: <%= @date.strftime('%Y-%m-%d') %></p>
   </div>
 
   <% if @rule.email_intro.present? %>
@@ -32,9 +32,9 @@
   <% end %>
 
   <% if @issues_count.zero? %>
-    <p><strong><%= I18n.t('redmine_digest.mailer.no_issues') %></strong></p>
+    <p><strong><%= I18n.t('redmine_mail_digest.mailer.no_issues') %></strong></p>
   <% else %>
-    <p class="summary"><strong><%= I18n.t('redmine_digest.mailer.issues_summary', count: @issues_count) %></strong></p>
+    <p class="summary"><strong><%= I18n.t('redmine_mail_digest.mailer.issues_summary', count: @issues_count) %></strong></p>
 
     <% if @grouped_issues.is_a?(Hash) %>
       <% @grouped_issues.each do |group_name, group_issues| %>
@@ -42,14 +42,14 @@
         <table>
           <thead>
             <tr>
-              <th><%= I18n.t('redmine_digest.mailer.column_id') %></th>
-              <th><%= I18n.t('redmine_digest.mailer.column_tracker') %></th>
-              <th><%= I18n.t('redmine_digest.mailer.column_subject') %></th>
-              <th><%= I18n.t('redmine_digest.mailer.column_status') %></th>
-              <th><%= I18n.t('redmine_digest.mailer.column_priority') %></th>
-              <th><%= I18n.t('redmine_digest.mailer.column_assignee') %></th>
-              <th><%= I18n.t('redmine_digest.mailer.column_due_date') %></th>
-              <th><%= I18n.t('redmine_digest.mailer.column_updated') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_id') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_tracker') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_subject') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_status') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_priority') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_assignee') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_due_date') %></th>
+              <th><%= I18n.t('redmine_mail_digest.mailer.column_updated') %></th>
             </tr>
           </thead>
           <tbody>
@@ -63,14 +63,14 @@
       <table>
         <thead>
           <tr>
-            <th><%= I18n.t('redmine_digest.mailer.column_id') %></th>
-            <th><%= I18n.t('redmine_digest.mailer.column_tracker') %></th>
-            <th><%= I18n.t('redmine_digest.mailer.column_subject') %></th>
-            <th><%= I18n.t('redmine_digest.mailer.column_status') %></th>
-            <th><%= I18n.t('redmine_digest.mailer.column_priority') %></th>
-            <th><%= I18n.t('redmine_digest.mailer.column_assignee') %></th>
-            <th><%= I18n.t('redmine_digest.mailer.column_due_date') %></th>
-            <th><%= I18n.t('redmine_digest.mailer.column_updated') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_id') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_tracker') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_subject') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_status') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_priority') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_assignee') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_due_date') %></th>
+            <th><%= I18n.t('redmine_mail_digest.mailer.column_updated') %></th>
           </tr>
         </thead>
         <tbody>
@@ -84,9 +84,9 @@
 
   <div class="email-footer">
     <p>
-      <%= I18n.t('redmine_digest.mailer.footer_member_notice', project: @project.name) %><br>
-      <a href="<%= digest_settings_url %>"><%= I18n.t('redmine_digest.mailer.footer_manage_link') %></a><br>
-      <%= I18n.t('redmine_digest.mailer.footer_generated_by') %>
+      <%= I18n.t('redmine_mail_digest.mailer.footer_member_notice', project: @project.name) %><br>
+      <a href="<%= digest_settings_url %>"><%= I18n.t('redmine_mail_digest.mailer.footer_manage_link') %></a><br>
+      <%= I18n.t('redmine_mail_digest.mailer.footer_generated_by') %>
     </p>
   </div>
 </body>

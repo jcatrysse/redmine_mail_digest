@@ -28,20 +28,20 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
       expect(described_class.new(rule).apply_to(scope).to_sql).to eq(scope.to_sql)
     end
 
-    it 'returns the original scope when the query is private and belongs to a different project' do
+    it 'returns the original scope when the query belongs to a different project' do
       private_query = IssueQuery.create!(
         name: 'private_q',
         project: other_project,
         visibility: Query::VISIBILITY_PRIVATE,
         user: author
       )
-      rule = create(:issue_digest_rule, project: project, query: private_query)
+      rule = build(:issue_digest_rule, project: project, query: private_query)
       scope = Issue.all
-      expect(Rails.logger).to receive(:warn).with(/not visible/)
+      expect(Rails.logger).to receive(:warn).with(/not in project/)
       expect(described_class.new(rule).apply_to(scope).to_sql).to eq(scope.to_sql)
     end
 
-    it 'applies a public query from another project' do
+    it 'skips a public project-scoped query from another project' do
       public_query = IssueQuery.create!(
         name: 'public_q',
         project: other_project,
@@ -49,15 +49,13 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         user: author,
         filters: { 'status_id' => { operator: 'o', values: [''] } }
       )
-      rule = create(:issue_digest_rule, project: project, query: public_query)
+      rule = build(:issue_digest_rule, project: project, query: public_query)
       scope = Issue.all
-      result = described_class.new(rule).apply_to(scope)
-      # Sanity: the WHERE clause should reference issue_statuses (set by the
-      # 'o' = "open" filter).
-      expect(result.to_sql).to match(/issue_statuses|is_closed/i)
+      expect(Rails.logger).to receive(:warn).with(/not in project/)
+      expect(described_class.new(rule).apply_to(scope).to_sql).to eq(scope.to_sql)
     end
 
-    it 'applies a query belonging to the same project even if not public' do
+    it 'applies a same-project private query owned by the rule creator' do
       private_query = IssueQuery.create!(
         name: 'own_q',
         project: project,
@@ -65,7 +63,37 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         user: author,
         filters: { 'status_id' => { operator: 'o', values: [''] } }
       )
-      rule = create(:issue_digest_rule, project: project, query: private_query)
+      rule = build(:issue_digest_rule, project: project, query: private_query, created_by: author)
+      scope = Issue.all
+      result = described_class.new(rule).apply_to(scope)
+      expect(result.to_sql).to match(/issue_statuses|is_closed/i)
+    end
+
+    it 'applies a same-project private query regardless of who owns it' do
+      owner = create(:user)
+      creator = create(:user)
+      private_query = IssueQuery.create!(
+        name: 'other_private_q',
+        project: project,
+        visibility: Query::VISIBILITY_PRIVATE,
+        user: owner,
+        filters: { 'status_id' => { operator: 'o', values: [''] } }
+      )
+      rule = build(:issue_digest_rule, project: project, query: private_query, created_by: creator)
+      scope = Issue.all
+      result = described_class.new(rule).apply_to(scope)
+      expect(result.to_sql).to match(/issue_statuses|is_closed/i)
+    end
+
+    it 'applies a global (no project) query' do
+      global_query = IssueQuery.create!(
+        name: 'global_q',
+        project: nil,
+        visibility: Query::VISIBILITY_PUBLIC,
+        user: author,
+        filters: { 'status_id' => { operator: 'o', values: [''] } }
+      )
+      rule = build(:issue_digest_rule, project: project, query: global_query, created_by: author)
       scope = Issue.all
       result = described_class.new(rule).apply_to(scope)
       expect(result.to_sql).to match(/issue_statuses|is_closed/i)
@@ -93,7 +121,7 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         visibility: Query::VISIBILITY_PUBLIC,
         user: author
       )
-      rule = create(:issue_digest_rule, project: project, query: empty_query)
+      rule = build(:issue_digest_rule, project: project, query: empty_query)
       allow_any_instance_of(IssueQuery).to receive(:statement).and_return('')
       scope = Issue.all
       expect(described_class.new(rule).apply_to(scope).to_sql).to eq(scope.to_sql)
@@ -115,7 +143,7 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         visibility: Query::VISIBILITY_PUBLIC,
         user: author
       )
-      rule = create(:issue_digest_rule, project: project, query: public_query)
+      rule = build(:issue_digest_rule, project: project, query: public_query)
       adapter = described_class.new(rule)
       adapter.apply_to(Issue.all)
       expect(adapter.warning).to be_nil
@@ -130,18 +158,18 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
       expect(adapter.warning).to match(/no longer exists/)
     end
 
-    it 'is set when the query is not visible' do
+    it 'is set when the query belongs to another project' do
       private_query = IssueQuery.create!(
         name: 'priv_q',
         project: other_project,
         visibility: Query::VISIBILITY_PRIVATE,
         user: author
       )
-      rule = create(:issue_digest_rule, project: project, query: private_query)
+      rule = build(:issue_digest_rule, project: project, query: private_query)
       adapter = described_class.new(rule)
-      expect(Rails.logger).to receive(:warn).with(/not visible/)
+      expect(Rails.logger).to receive(:warn).with(/not in project/)
       adapter.apply_to(Issue.all)
-      expect(adapter.warning).to match(/not visible/)
+      expect(adapter.warning).to match(/does not belong to this project/)
     end
 
     it 'is set when an unexpected error occurs' do
@@ -151,7 +179,7 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         visibility: Query::VISIBILITY_PUBLIC,
         user: author
       )
-      rule = create(:issue_digest_rule, project: project, query: bad_query)
+      rule = build(:issue_digest_rule, project: project, query: bad_query)
       allow_any_instance_of(IssueQuery).to receive(:statement).and_raise(StandardError, 'oops')
       adapter = described_class.new(rule)
       expect(Rails.logger).to receive(:warn).with(/query adapter error/)

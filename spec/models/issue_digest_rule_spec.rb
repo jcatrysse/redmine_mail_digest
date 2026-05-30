@@ -36,6 +36,24 @@ RSpec.describe IssueDigestRule, type: :model do
       expect(build(:issue_digest_rule, schedule_type: 'hourly')).not_to be_valid
     end
 
+    # The schedule_config / recipient_modes columns are NOT NULL with no DB
+    # default (MySQL forbids defaults on TEXT). The model must backfill them so
+    # a persisted row never receives NULL on any database.
+    it 'coerces a nil schedule_config to an empty hash and persists it' do
+      rule = build(:issue_digest_rule, schedule_type: 'daily', schedule_config: nil)
+      expect(rule).to be_valid
+      expect(rule.schedule_config).to eq({})
+      rule.save!
+      expect(rule.reload.schedule_config).to eq({})
+    end
+
+    it 'coerces a nil recipient_modes to an empty array (then fails presence)' do
+      rule = build(:issue_digest_rule, recipient_modes: nil)
+      expect(rule).not_to be_valid
+      expect(rule.recipient_modes).to eq([])
+      expect(rule.errors[:recipient_modes]).to be_present
+    end
+
     %i[weekdays weekly monthly_date monthly_last_day interval_days interval_weeks manual].each do |trait|
       it "is valid with #{trait} schedule" do
         expect(build(:issue_digest_rule, trait)).to be_valid
@@ -296,15 +314,23 @@ RSpec.describe IssueDigestRule, type: :model do
     end
   end
 
-  describe 'only_since_last_run' do
-    it 'defaults to false' do
+  describe 'since-last-run flags' do
+    it 'both default to false' do
       rule = create(:issue_digest_rule)
-      expect(rule.only_since_last_run).to be false
+      expect(rule.since_last_run_created).to be false
+      expect(rule.since_last_run_updated).to be false
     end
 
-    it 'can be set to true' do
-      rule = create(:issue_digest_rule, only_since_last_run: true)
-      expect(rule.only_since_last_run).to be true
+    it 'can be set independently' do
+      rule = create(:issue_digest_rule, since_last_run_created: true, since_last_run_updated: false)
+      expect(rule.since_last_run_created).to be true
+      expect(rule.since_last_run_updated).to be false
+    end
+
+    it 'can both be enabled (cumulative)' do
+      rule = create(:issue_digest_rule, since_last_run_created: true, since_last_run_updated: true)
+      expect(rule.since_last_run_created).to be true
+      expect(rule.since_last_run_updated).to be true
     end
   end
 
@@ -328,6 +354,97 @@ RSpec.describe IssueDigestRule, type: :model do
       _pending = create(:issue_digest_rule, :pending)
       _expired = create(:issue_digest_rule, :expired)
       expect(IssueDigestRule.due_now).to contain_exactly(candidate)
+    end
+  end
+  describe 'query project validation' do
+    it 'accepts a private query owned by the rule creator' do
+      creator = create(:user)
+      project = create(:project)
+      query = IssueQuery.create!(
+        name: "OwnedDigestQ_#{SecureRandom.hex(4)}",
+        project: project,
+        visibility: Query::VISIBILITY_PRIVATE,
+        user: creator
+      )
+      rule = build(:issue_digest_rule, project: project, created_by: creator, query: query)
+      expect(rule).to be_valid
+    end
+
+    it 'accepts a same-project private query owned by another user' do
+      creator = create(:user)
+      owner = create(:user)
+      project = create(:project)
+      query = IssueQuery.create!(
+        name: "OtherDigestQ_#{SecureRandom.hex(4)}",
+        project: project,
+        visibility: Query::VISIBILITY_PRIVATE,
+        user: owner
+      )
+      rule = build(:issue_digest_rule, project: project, created_by: creator, query: query)
+      expect(rule).to be_valid
+    end
+
+    it 'accepts a global query' do
+      creator = create(:user)
+      project = create(:project)
+      query = IssueQuery.create!(
+        name: "GlobalDigestQ_#{SecureRandom.hex(4)}",
+        project: nil,
+        visibility: Query::VISIBILITY_PUBLIC,
+        user: creator
+      )
+      rule = build(:issue_digest_rule, project: project, created_by: creator, query: query)
+      expect(rule).to be_valid
+    end
+
+    it 'rejects a query belonging to another project' do
+      creator = create(:user)
+      project = create(:project)
+      other_project = create(:project)
+      query = IssueQuery.create!(
+        name: "ForeignDigestQ_#{SecureRandom.hex(4)}",
+        project: other_project,
+        visibility: Query::VISIBILITY_PUBLIC,
+        user: creator
+      )
+      rule = build(:issue_digest_rule, project: project, created_by: creator, query: query)
+      expect(rule).not_to be_valid
+      expect(rule.errors[:query_id]).to be_present
+    end
+
+    it 'rejects a query_id that no longer exists' do
+      project = create(:project)
+      rule = build(:issue_digest_rule, project: project, created_by: create(:user))
+      rule.query_id = 999_999
+      expect(rule).not_to be_valid
+      expect(rule.errors[:query_id]).to be_present
+    end
+  end
+
+  describe 'timezone-aware date range' do
+    it 'interprets end_on in the rule timezone at the day boundary' do
+      project = create(:project)
+      # Pacific/Kiritimati is UTC+14: at this UTC instant the rule's local date
+      # has already rolled over to 2026-05-31 while the server/UTC date is still
+      # 2026-05-30. The window check must use the rule's local date.
+      rule = build(:issue_digest_rule, project: project, timezone: 'Pacific/Kiritimati')
+      travel_to(Time.utc(2026, 5, 30, 12, 0, 0)) do
+        rule.end_on = Date.new(2026, 5, 30)
+        expect(rule.within_date_range?).to be(false)
+
+        rule.end_on = Date.new(2026, 5, 31)
+        expect(rule.within_date_range?).to be(true)
+      end
+    end
+  end
+
+  describe 'recipient_modes normalization' do
+    it 'removes blanks and duplicates before validation while preserving order' do
+      project = create(:project)
+      rule = build(:issue_digest_rule, project: project,
+                                       recipient_modes: ['project_members', '', 'authors', 'project_members'])
+      rule.valid?
+      expect(rule.recipient_modes).to eq(%w[project_members authors])
     end
   end
 end

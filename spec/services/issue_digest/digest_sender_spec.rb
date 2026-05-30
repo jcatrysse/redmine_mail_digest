@@ -36,6 +36,12 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
                      status: open_st, author: admin }.merge(attrs))
   end
 
+  # Build a RecipientResolver::Recipient. Defaults to :broad (no source
+  # narrowing) so per-recipient issue expectations match the full matching list.
+  def recipient(user, modes = [:broad])
+    IssueDigest::RecipientResolver::Recipient.new(user: user, modes: Set.new(modes))
+  end
+
   let(:rule) do
     create(:issue_digest_rule,
            project: project,
@@ -48,7 +54,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
       make_issue
       make_issue
       # Pretend both users are valid recipients
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a, user_b])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a), recipient(user_b)])
 
       expect(IssueDigestMailer).to receive(:digest_email).twice.and_return(mail_double)
       expect(mail_double).to receive(:deliver_now).twice
@@ -65,7 +71,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
     end
 
     it 'updates rule.last_success_at when success' do
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
       make_issue
       rule.update_column(:last_success_at, nil)
 
@@ -74,7 +80,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
     end
 
     it 'finishes skipped when no recipients are resolved' do
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([])
 
       run = described_class.new(rule, dry_run: false).send
       expect(run.status).to eq('skipped')
@@ -85,7 +91,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
 
     it 'records skipped delivery when recipient has zero issues and send_empty=false' do
       rule.update!(send_empty: false)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
       # No issues created → IssueResolver returns Issue.none
 
       run = described_class.new(rule, dry_run: false).send
@@ -98,9 +104,47 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
       expect(IssueDigestMailer).not_to have_received(:digest_email)
     end
 
+    it 'preloads issue associations before rendering to avoid mailer N+1 queries' do
+      relation = instance_double(ActiveRecord::Relation)
+      loaded = [make_issue]
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
+      allow_any_instance_of(IssueDigest::IssueResolver).to receive(:resolve).and_return(relation)
+      allow(relation).to receive(:limit).and_return(relation)
+      expect(relation).to receive(:includes)
+        .with(:tracker, :status, :priority, :assigned_to, :fixed_version, :category)
+        .and_return(loaded)
+
+      run = described_class.new(rule, dry_run: false).send
+      expect(run.status).to eq('success')
+    end
+
+    it 'fails deliveries instead of sending a broader digest when saved query evaluation warns' do
+      rule.update_column(:query_id, 999_999)
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
+      allow(Rails.logger).to receive(:warn)
+
+      run = described_class.new(rule, dry_run: false).send
+      expect(run.status).to eq('failed')
+      expect(run.emails_sent_count).to eq(0)
+      expect(run.emails_failed_count).to eq(1)
+      expect(run.warning_message).to match(/no longer exists/)
+      expect(IssueDigestMailer).not_to have_received(:digest_email)
+    end
+
+    it 'mirrors the blocked-delivery outcome in dry-run when the saved query is unusable' do
+      rule.update_column(:query_id, 999_999)
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
+      allow(Rails.logger).to receive(:warn)
+
+      summary = described_class.new(rule, dry_run: true).send
+      expect(summary[:warning_message]).to match(/no longer exists/)
+      expect(summary[:plans]).to contain_exactly(hash_including(user_id: user_a.id, action: :fail))
+      expect(IssueDigestMailer).not_to have_received(:digest_email)
+    end
+
     it 'sends empty digest when send_empty=true' do
       rule.update!(send_empty: true)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
 
       run = described_class.new(rule, dry_run: false).send
       expect(run.status).to eq('success')
@@ -112,7 +156,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
 
     it 'records failure when mailer raises and finishes failed when all fail' do
       make_issue
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
       allow(IssueDigestMailer).to receive(:digest_email).and_raise(StandardError, 'smtp down')
 
       run = described_class.new(rule, dry_run: false).send
@@ -126,7 +170,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
 
     it 'returns partial_failure when some succeed and some fail' do
       make_issue
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a, user_b])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a), recipient(user_b)])
       call_count = 0
       allow(IssueDigestMailer).to receive(:digest_email) do
         call_count += 1
@@ -144,7 +188,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
     it 'does not update last_success_at when failed' do
       make_issue
       rule.update_column(:last_success_at, nil)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
       allow(IssueDigestMailer).to receive(:digest_email).and_raise(Net::SMTPError, 'down')
 
       described_class.new(rule, dry_run: false).send
@@ -152,7 +196,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
     end
 
     it 'records error status when RecipientResolver itself raises' do
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_raise(StandardError, 'broken')
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_raise(StandardError, 'broken')
       run = described_class.new(rule, dry_run: false).send
       expect(run.status).to eq('error')
       expect(run.error_message).to include('broken')
@@ -161,7 +205,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
     it 'passes the rule, user, issues and grouped_issues to the mailer' do
       i1 = make_issue
       i2 = make_issue
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
 
       described_class.new(rule, dry_run: false).send
 
@@ -178,7 +222,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
       i1 = make_issue
       i2 = make_issue
       rule.update!(group_by: 'tracker')
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
 
       described_class.new(rule, dry_run: false).send
 
@@ -191,10 +235,10 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
 
     it 'limits issues to max_issues_per_email setting' do
       3.times { make_issue }
-      # Setting.plugin_redmine_digest is generated when init.rb registers settings
+      # Setting.plugin_redmine_mail_digest is generated when init.rb registers settings
       # (Agent 4's responsibility). Stub the sender's setting lookup directly.
       allow_any_instance_of(described_class).to receive(:max_issues_per_email).and_return(2)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
 
       described_class.new(rule, dry_run: false).send
 
@@ -207,7 +251,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
   describe '#send (orphaned query warning)' do
     it 'populates warning_message on the run when the query no longer exists' do
       rule.update_column(:query_id, 999_999)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
       allow(Rails.logger).to receive(:warn)
 
       run = described_class.new(rule, dry_run: false).send
@@ -217,7 +261,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
 
     it 'does not set warning_message when no query is referenced' do
       rule.update!(query_id: nil)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
 
       run = described_class.new(rule, dry_run: false).send
       expect(run.warning_message).to be_nil
@@ -227,7 +271,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
   describe '#send (dry_run)' do
     it 'returns a summary hash, writes no DB records, and does not send mail' do
       make_issue
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a, user_b])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a), recipient(user_b)])
 
       expect do
         result = described_class.new(rule, dry_run: true).send
@@ -245,7 +289,7 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
 
     it 'includes warning_message in dry-run summary when the query no longer exists' do
       rule.update_column(:query_id, 999_999)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
       allow(Rails.logger).to receive(:warn)
 
       result = described_class.new(rule, dry_run: true).send
@@ -254,10 +298,43 @@ RSpec.describe IssueDigest::DigestSender, type: :service do
 
     it 'reports skip plans for users with no issues when send_empty=false' do
       rule.update!(send_empty: false)
-      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:resolve).and_return([user_a])
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
 
       result = described_class.new(rule, dry_run: true).send
       expect(result[:plans].first[:action]).to eq(:skip)
+    end
+
+    it 'collects the human-readable lines into summary[:log] for the UI preview' do
+      make_issue
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
+
+      result = described_class.new(rule, dry_run: true).send
+      expect(result[:log]).to be_an(Array)
+      expect(result[:log].first).to include("Rule ##{rule.id}")
+      expect(result[:log].join("\n")).to match(/Would send 1 issues to user ##{user_a.id}/)
+    end
+
+    it 'can suppress stdout while still collecting summary log lines' do
+      make_issue
+      allow_any_instance_of(IssueDigest::RecipientResolver).to receive(:recipients).and_return([recipient(user_a)])
+
+      result = nil
+      expect { result = described_class.new(rule, dry_run: true, emit_stdout: false).send }
+        .not_to output.to_stdout
+      expect(result[:log].join("\n")).to match(/Would send 1 issues to user ##{user_a.id}/)
+    end
+  end
+end
+
+RSpec.describe IssueDigest::DigestSender, type: :service do
+  describe '.clamped_max_issues_per_email' do
+    it 'falls back to the default for non-positive values' do
+      expect(described_class.clamped_max_issues_per_email('-10')).to eq(described_class::DEFAULT_MAX_ISSUES_PER_EMAIL)
+      expect(described_class.clamped_max_issues_per_email('0')).to eq(described_class::DEFAULT_MAX_ISSUES_PER_EMAIL)
+    end
+
+    it 'caps very large values at the documented maximum' do
+      expect(described_class.clamped_max_issues_per_email('999999')).to eq(described_class::MAX_MAX_ISSUES_PER_EMAIL)
     end
   end
 end

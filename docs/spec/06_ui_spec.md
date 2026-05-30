@@ -1,4 +1,4 @@
-# UI and UX Specification — redmine_digest
+# UI and UX Specification — redmine_mail_digest
 
 ## 1. Design Philosophy
 
@@ -112,6 +112,8 @@ No digest rules have been configured for this project.
 | `monthly_last_day` | Monthly on the last day |
 | `interval_days` | Every N days |
 | `interval_weeks` | Every N weeks |
+| `interval_hours` | Every N hours |
+| `interval_minutes` | Every N minutes |
 | `manual` | Manual only (rake task) |
 
 **Dynamic sub-fields** (show/hide with Stimulus or inline `<script>`):
@@ -124,7 +126,8 @@ No digest rules have been configured for this project.
 | `monthly_last_day` | *(no extra fields)* | — | Last day is computed automatically |
 | `interval_days` | Every N days | integer | Min 1, max 365 |
 | `interval_weeks` | Every N weeks | integer | Min 1, max 52 |
-| `manual` | *(no send time or timezone)* | — | Both send_time and timezone hidden/disabled |
+| `interval_hours` / `interval_minutes` | Every N hours/minutes | integer + optional time window/day filter | Sub-daily schedules hide send time and grace window |
+| `manual` | *(no send time)* | — | Send time hidden/disabled |
 
 **Business days section** (shown for all types except `weekdays` and `manual`):
 
@@ -177,7 +180,7 @@ select changes. The controller only needs to toggle CSS `display` — no AJAX re
 
 ```
 [ ] All project members
-[ ] Members with role: [role select — shown when this is checked]
+[ ] Members with role: [role checkboxes]
 [ ] Assigned users (users assigned to matching issues)
 [ ] Issue authors
 [ ] Issue watchers
@@ -289,9 +292,9 @@ The confirmation dialog text:
 
 ## 8. Global Admin Settings Page
 
-**URL**: `/settings/plugin/redmine_digest`  
+**URL**: `/settings/plugin/redmine_mail_digest`  
 **Access**: Redmine administrators only (Redmine enforces this for plugin settings).  
-**Backing store**: `Setting.plugin_redmine_digest` hash (standard Redmine plugin settings).
+**Backing store**: `Setting.plugin_redmine_mail_digest` hash (standard Redmine plugin settings).
 
 ### Fields
 
@@ -314,7 +317,7 @@ settings :default => {
 ### I18n keys for global settings
 
 ```yaml
-redmine_digest:
+redmine_mail_digest:
   settings:
     max_issues_per_email: "Maximum issues per email"
     run_history_retention_days: "Run history retention (days)"
