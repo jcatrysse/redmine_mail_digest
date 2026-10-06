@@ -33,7 +33,7 @@ const plainId = rule('E2E preview rule');
 const runsBefore = runs(plainId);
 await t.login('manager');
 let rows = await preview(plainId);
-if (rows.length !== 3) t.problems.push(`preview: ${rows.length} recipients, expected 3 (manager, reporter, viewer)`);
+if (rows.length !== 4) t.problems.push(`preview: ${rows.length} recipients, expected 4 (manager, reporter, viewer, digester)`);
 if (!rows.every(r => /Would send \d+ issue/i.test(r))) t.problems.push(`preview rows: ${rows.join(' | ')}`);
 if (await t.page.locator('#digest-preview').getByText('E2E private issue in public project').count()) t.problems.push('preview shows issue titles');
 if (runs(plainId) !== runsBefore) t.problems.push('preview recorded a run');

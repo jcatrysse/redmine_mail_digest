@@ -1,54 +1,56 @@
 # digest-send: commands and output
 
-Run 2026-10-06T20:27:23.081Z.
+Run 2026-10-06T20:55:20.891Z.
 
 ```
 $ rake redmine:issue_digest:send DRY_RUN=1 MANUAL=1 RULE_ID=4 VERBOSE=1
-[IssueDigest] Starting at 2026-10-06T20:26:08Z (dry_run=true, force=true)
+[IssueDigest] Starting at 2026-10-06T20:54:07Z (dry_run=true, force=true)
 [IssueDigest] Found 1 due rules
 [IssueDigest] Processing rule #4: E2E send rule (project: e2e-project)
-[DRY_RUN] Rule #4 (E2E send rule): 3 recipients
-  [DRY_RUN] Would send 8 issues to user #5
-  [DRY_RUN] Would send 7 issues to user #6
-  [DRY_RUN] Would send 7 issues to user #8
-[IssueDigest] Rule #4: DRY_RUN summary: 3 plans (3 recipients)
-[IssueDigest] Finished at 2026-10-06T20:26:08Z (1 rules, 0 emails, 0 failures)
+[DRY_RUN] Rule #4 (E2E send rule): 4 recipients
+  [DRY_RUN] Would send 9 issues to user #5
+  [DRY_RUN] Would send 8 issues to user #6
+  [DRY_RUN] Would send 8 issues to user #8
+  [DRY_RUN] Would send 8 issues to user #9
+[IssueDigest] Rule #4: DRY_RUN summary: 4 plans (4 recipients)
+[IssueDigest] Finished at 2026-10-06T20:54:07Z (1 rules, 0 emails, 0 failures)
 
 $ rake redmine:issue_digest:send MANUAL=1 RULE_ID=4 VERBOSE=1
-[IssueDigest] Starting at 2026-10-06T20:26:16Z (dry_run=false, force=true)
+[IssueDigest] Starting at 2026-10-06T20:54:15Z (dry_run=false, force=true)
 [IssueDigest] Found 1 due rules
 [IssueDigest] Processing rule #4: E2E send rule (project: e2e-project)
-[IssueDigest] Rule #4: completed (success, sent=3, failed=0)
-[IssueDigest] Finished at 2026-10-06T20:26:17Z (1 rules, 3 emails, 0 failures)
+[IssueDigest] Rule #4: completed (success, sent=4, failed=0)
+[IssueDigest] Finished at 2026-10-06T20:54:16Z (1 rules, 4 emails, 0 failures)
 
 $ ls tmp/mails
+digester@example.net
 manager@example.net
 reporter@example.net
 viewer@example.net
 
 $ manager mail headers
 To: manager@example.net
-Subject: E2E digest 1791318360568 E2E project: 8 issues
+Subject: E2E digest 1791320039651 E2E project: 9 issues
 MIME-Version: 1.0
 Content-Type: multipart/alternative;
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 
 $ rake redmine:issue_digest:send VERBOSE=1   # the cron entry
-[IssueDigest] Starting at 2026-10-06T20:26:28Z (dry_run=false, force=false)
+[IssueDigest] Starting at 2026-10-06T20:54:27Z (dry_run=false, force=false)
 [IssueDigest] Found 1 due rules
 [IssueDigest] Processing rule #5: E2E scheduled rule (project: e2e-project)
-[IssueDigest] Finished at 2026-10-06T20:26:29Z (1 rules, 0 emails, 0 failures)
+[IssueDigest] Finished at 2026-10-06T20:54:28Z (1 rules, 0 emails, 0 failures)
 
 $ rake redmine:issue_digest:send VERBOSE=1   # again, same window
-[IssueDigest] Starting at 2026-10-06T20:26:32Z (dry_run=false, force=false)
+[IssueDigest] Starting at 2026-10-06T20:54:31Z (dry_run=false, force=false)
 [IssueDigest] Found 0 due rules
-[IssueDigest] Finished at 2026-10-06T20:26:32Z (0 rules, 0 emails, 0 failures)
+[IssueDigest] Finished at 2026-10-06T20:54:31Z (0 rules, 0 emails, 0 failures)
 
 $ rake redmine:issue_digest:send MANUAL=1 RULE_ID=4 VERBOSE=1   # rule disabled
-[IssueDigest] Starting at 2026-10-06T20:26:40Z (dry_run=false, force=true)
+[IssueDigest] Starting at 2026-10-06T20:54:39Z (dry_run=false, force=true)
 [IssueDigest] Found 0 due rules
-[IssueDigest] Finished at 2026-10-06T20:26:40Z (0 rules, 0 emails, 0 failures)
+[IssueDigest] Finished at 2026-10-06T20:54:39Z (0 rules, 0 emails, 0 failures)
 
 $ rake redmine:issue_digest:send MANUAL=1 RULE_ID=4   # max_issues_per_email = 2
 (no output)

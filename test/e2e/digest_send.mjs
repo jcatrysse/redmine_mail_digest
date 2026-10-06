@@ -80,7 +80,7 @@ record(`rake redmine:issue_digest:send MANUAL=1 RULE_ID=${ruleId} VERBOSE=1`, ou
 const mails = readMails();
 const got = Object.keys(mails).sort();
 record('ls tmp/mails', got.join('\n'));
-for (const who of ['manager', 'reporter', 'viewer']) {
+for (const who of ['manager', 'reporter', 'viewer', 'digester']) {
   if (!got.includes(`${who}@example.net`)) t.problems.push(`manual run: no digest for ${who}`);
 }
 for (const who of ['outsider', 'admin']) {

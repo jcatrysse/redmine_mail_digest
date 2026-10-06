@@ -1,11 +1,11 @@
 # recipients
 
-Run 2026-10-06T20:47:34.799Z against http://127.0.0.1:3000.
+Run 2026-10-06T20:51:49.228Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|
 | ![](recipients-form-assignees.png) | manager | `/projects/e2e-project/digest_rules/new` | Recipients: issue assignees only |
-| ![](recipients-form-role-user.png) | manager | `/projects/e2e-project/digest_rules/15/edit` | Recipients: role "E2E digest viewer" and the specific user Reporter E2E |
-| ![](recipients-form-emails.png) | manager | `/projects/e2e-project/digest_rules/15/edit` | Recipients by e-mail address: a member, a non-member and an unknown address |
-| ![](recipients-show-emails.png) | manager | `/projects/e2e-project/digest_rules/15` | The rule lists the addresses; viewer and outsider (public project) received the digest, the unknown address nothing |
-| ![](recipients-show-emails-off.png) | manager | `/projects/e2e-project/digest_rules/15` | E-mail address lookup switched off: the stored addresses are marked "not sent" and nobody received the digest |
+| ![](recipients-form-role-user.png) | manager | `/projects/e2e-project/digest_rules/16/edit` | Recipients: role "E2E digest viewer" and the specific user Reporter E2E |
+| ![](recipients-form-emails.png) | manager | `/projects/e2e-project/digest_rules/16/edit` | Recipients by e-mail address: a member, a non-member and an unknown address |
+| ![](recipients-show-emails.png) | manager | `/projects/e2e-project/digest_rules/16` | The rule lists the addresses; viewer and outsider (public project) received the digest, the unknown address nothing |
+| ![](recipients-show-emails-off.png) | manager | `/projects/e2e-project/digest_rules/16` | E-mail address lookup switched off: the stored addresses are marked "not sent" and nobody received the digest |

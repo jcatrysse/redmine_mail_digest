@@ -1,10 +1,10 @@
 # digest-send
 
-Run 2026-10-06T20:27:23.083Z against http://127.0.0.1:3000.
+Run 2026-10-06T20:55:20.892Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|
-| ![](digest-send-mail-manager.png) | manager | `/my/page` | The manager's digest as a mail client renders it, subject "E2E digest 1791318360568 E2E project: 8 issues": grouped by status, the private issue included |
+| ![](digest-send-mail-manager.png) | manager | `/my/page` | The manager's digest as a mail client renders it, subject "E2E digest 1791320039651 E2E project: 9 issues": grouped by status, the private issue included |
 | ![](digest-send-mail-reporter.png) | manager | `/my/page` | The reporter's digest of the same run: the private issue is not in it |
 | ![](digest-send-run-history.png) | manager | `/projects/e2e-project/digest_rules/4` | The rule page lists the manual run: trigger, status, recipients, mails sent |
 | ![](digest-send-mail-capped.png) | manager | `/projects/e2e-project/digest_rules/4` | With "Maximum issues per email" set to 2 the digest lists 2 issues |
