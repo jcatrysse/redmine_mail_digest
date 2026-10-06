@@ -18,17 +18,45 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Plugin id | `redmine_mail_digest` |
 | GEOxyz runs today | `main` |
 | Upstream | geen (eigen plugin) |
-| Runs on Redmine 7 as is | JA |
+| Runs on Redmine 7 as is | JA (boots, specs green), but with visible defects; fixed on this branch |
 | Upstream sync | GEEN UPSTREAM |
 | After sync | n.v.t. |
 | Complexity (1 trivial .. 5 rewrite) | 1 |
-| Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz + latest 7.0-stable), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16 and MariaDB 10.11 |
-| Branch head when this file was written | `14ee9c2` |
+| Measured on | Redmine 7.0.1 (`7.0-stable-GEOxyz` @ `8067e23`), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 and MariaDB 10.11.14; also Redmine 5.1.13 (`5.1-stable`), Rails 6.1.7.10, Ruby 3.2.6 |
+| Migration session | done 2026-10-06; work list complete, open questions below |
+| Branch head | see `git log`; this file updated with the last commit |
+
+## Result (2026-10-06)
+
+| Check | PostgreSQL 16 | MariaDB 10.11 | Redmine 5.1.13 (PostgreSQL) |
+|---|---|---|---|
+| rspec, test DB by `db:migrate` | 518 examples, 0 failures | 518 examples, 0 failures | 518 examples, 0 failures, 3 pending (sprite-icon examples skip on 5.1) |
+| rspec, schema-only test DB (`db:schema:load`) | 518 examples, 0 failures (was 20 failures) | 518 examples, 0 failures | - |
+| plugin migrations down to 0 and up again | 10 reverted, 10 migrated, then 518/0 | 10 reverted, 10 migrated, then 518/0 | - |
+| production boot + eager load | OK (puma, `Rails.application.eager_load!`) | OK | OK |
+| e2e (`./.codex/e2e.sh`, production mode) | 8 scripts (smoke, core, 6 plugin scenarios), 58 screenshots, 0 problems | 8 scripts, 58 screenshots, 0 problems | 8 scripts, 58 screenshots, 0 problems (`docs/e2e/redmine51`) |
+| together with `redmine_wiki_extensions` 1.3.0 (main) | 518/0 and e2e 58/0 | - | - |
+| OpenAI review (`gpt-5`) | no findings (`docs/reviews/openai-2026-10-06-c370138.md`) | | |
+
+Screenshots: `docs/e2e/*.png` (PostgreSQL, committed and looked at), `docs/e2e/redmine51/`
+(the branch on 5.1), `docs/e2e/before/` (`main` on 5.1, see its README), `docs/e2e/baseline/`
+(smoke and core on Redmine 7 before any change). The MariaDB run's pictures were looked at, not
+committed (same pages).
 
 ## Already on this branch
 
-- Work list item 1: specs create the builtin groups and the Non member role with view_issues
-  themselves (`spec/rails_helper.rb`).
+| Commit | What | Test that fails without it |
+|---|---|---|
+| `d155a6f` | Specs create the builtin groups and Non member `view_issues` (work list 1) | the suite on a schema-only test DB: 20 failures before |
+| `70ff82b` | `Auto-Submitted: auto-generated`, `X-Auto-Response-Suppress: All` on digest mails (work list 2, header part) | `spec/mailers` "marks the mail as auto-generated" |
+| `ce3ee43` | Action icons through `sprite_icon` on 6+/7, CSS icons kept on 5.1; enable/disable/delete as `<button>` (block form of `button_to`) so the SVG fits (work list 3) | controller specs "draws the action icons as SVG sprites", helper spec |
+| `d328d23` | New rule form preselected "(UTC-12:00) International Date Line West" when Redmine's default time zone is unset (found in e2e; also on 5.1) | controller spec "preselects UTC" |
+| `4f8893d` | Plugin settings: duplicate id on the e-mail lookup checkbox, label did nothing (found in e2e) | `spec/views/issue_digest_settings_spec.rb` |
+| `373d73a` | Models inherit from `ApplicationRecord` where it exists: on Redmine 6/7 form labels and error messages ignored the plugin's `field_*` translations (Redmine 6 moved that lookup off `ActiveRecord::Base`) | `spec/models/attribute_names_spec.rb` |
+| `eb5b4b1` | The rule's own error codes had no translation ("Translation missing" in the form), all 11 locales (found in e2e; also on 5.1) | `spec/models/issue_digest_rule_error_messages_spec.rb` (66 examples) |
+| `b096951` | Rule form submitted the hidden schedule blocks too: weekly-on-Wednesday saved as Monday, every 3 days as 1 (found in e2e; also on 5.1) | `test/e2e/rule_lifecycle.mjs`, controller spec "clears the schedule config" |
+| `bb2476c`, `0b5c973` | e2e scenarios and screenshots | - |
+| `c370138` | README (Redmine 7, how users reach the rules), manual workflow `rspec-70.yml` | - |
 
 ## Baseline (2026-10-06, before any change, branch head `ecd779b`)
 
@@ -40,21 +68,96 @@ Redmine 7.0.1 `7.0-stable-GEOxyz` @ `8067e23`, Rails 8.1.3.1, Ruby 3.3.6.
 | MariaDB 10.11.14 | `db:migrate` + `redmine:plugins:migrate` | 440 examples, 0 failures |
 | PostgreSQL 16.15 | `db:schema:load` (schema only, no builtin groups/roles) | 440 examples, 20 failures (as in the analysis) |
 
+Browser baseline (production mode, PostgreSQL): smoke 15 screenshots, core 6, 0 problems
+(`docs/e2e/baseline`). Visible on the pictures already: action links without icons.
+
+## Inventory of functions
+
+| Function | How a user reaches it | Scenario | Screenshots |
+|---|---|---|---|
+| Plugin settings (max issues per mail, retention, e-mail address lookup) | Administration > Plugins > Configure | `settings.mjs` | `settings-form`, `-saved`, `-email-field-on`, `-refused` (non-admin 403), `-anonymous` (login) |
+| Project module + permissions `view_digest_rules` / `manage_digest_rules` | project Settings > Modules; Roles | `access.mjs` | `access-tab-manager`, `-index-manager`, `-index-viewer`, `-show-viewer`, `-new-refused-viewer`, `-index-refused-reporter`, `-private-refused-outsider`, `-anonymous`, `-other-project-404`, `-module-off` |
+| Digest Rules tab in the project settings | Settings > Digest Rules | `access.mjs`, `rule_lifecycle.mjs` | `access-tab-manager`, `rule-lifecycle-created` |
+| Rule list | `/projects/<id>/digest_rules` | `access.mjs` | `access-index-*` |
+| New rule / create, schedule fields per type, invalid input | New Digest Rule | `rule_lifecycle.mjs` | `rule-lifecycle-new-form`, `-form-every-n-hours`, `-invalid`, `-created` |
+| Show rule (details, formatted intro, run history) | rule name | `rule_lifecycle.mjs`, `digest_send.mjs` | `rule-lifecycle-show`, `digest-send-run-history` |
+| Edit / update, invalid update | Edit | `rule_lifecycle.mjs` | `rule-lifecycle-edit`, `-updated`, `-invalid-update` |
+| Disable / enable | Disable / Enable buttons | `rule_lifecycle.mjs`, `access.mjs` (forged POST as viewer: 403) | `rule-lifecycle-disabled` |
+| Delete (confirm cancelled, then accepted) | Delete | `rule_lifecycle.mjs` | `rule-lifecycle-deleted` |
+| Preview (dry run), saved query filter, deleted saved query | Preview (dry run) on the rule page | `preview.mjs` | `preview-counts`, `-query-and`, `-query-deleted`, `-viewer` (forged POST 403) |
+| Recipient modes: assignees, role, specific user, e-mail addresses | rule form, Recipients | `recipients.mjs` | `recipients-form-assignees`, `-form-role-user`, `-form-emails`, `-show-emails`; output in `recipients-commands.md` |
+| Sending: `rake redmine:issue_digest:send` dry run, manual, scheduled (cron), idempotent window, disabled rule, issue cap; mail content, headers, per-recipient visibility | cron / operator | `digest_send.mjs` | `digest-send-mail-manager`, `-mail-reporter` (private issue absent), `-mail-capped`, `-run-history`; commands and output in `digest-send-commands.md` |
+| Cleanup: `rake redmine:issue_digest:cleanup` | cron | `digest_send.mjs` | `digest-send-commands.md` (one run of 200 days deleted, 3 -> 2) |
+| Webhooks (Redmine 7) | - | not applicable, see work list 5 | - |
+
 ## Work list for the migration session
 
 In this order: things that break, security, the GEOxyz changes, the open items, then the checks.
 
 **Open items from the analysis** (Dutch; where they conflict with a decision or a priority item above, those win)
 
-1. Make specs create builtin groups and a Non member role with view_issues themselves
-2. Product decision: honour mail_notification=none / add Auto-Submitted header (digest bypasses Redmine Mailer)
-3. Icons icon-* -> sprite_icon (cosmetic)
+1. Make specs create builtin groups and a Non member role with view_issues themselves.
+   **Done** in `d155a6f`.
+2. Product decision: honour mail_notification=none / add Auto-Submitted header (digest bypasses Redmine Mailer).
+   **Header done** in `70ff82b` (no behaviour lost; same headers as Redmine's Mailer).
+   **mail_notification not changed**: OQ-02 in `docs/spec/` decided that the digest ignores it
+   (the PM controls recipients). Kept; see "Open questions for Jan".
+3. Icons icon-* -> sprite_icon (cosmetic). **Done** in `ce3ee43`, 5.1 keeps the CSS icons
+   (checked in `docs/e2e/redmine51`).
+
+Found while testing end to end (fixed, each with a test; all except the labels were also wrong on 5.1):
+
+- 3a. Timezone default "International Date Line West" (`d328d23`).
+- 3b. Duplicate id on the settings checkbox (`4f8893d`).
+- 3c. Untranslated labels and messages on Redmine 6/7 (`373d73a`, a Redmine 6+ regression).
+- 3d. "Translation missing" for the rule's own errors (`eb5b4b1`).
+- 3e. Hidden schedule blocks submitted: wrong weekday, day of month and interval saved (`b096951`).
+
+Not fixed (recorded, no change made):
+
+- 3f. The rule list's "No runs recorded yet." uses `.nodata`, which Redmine draws as a full flash
+  box, so it overflows the table cell (same on 5.1, see `docs/e2e/before/access-tab-manager.png`).
+  Cosmetic; a one-class change in `_rule_row.html.erb` when wanted.
+- 3g. The rule page warning for a deleted saved query says "The query filter will be skipped
+  until the rule is updated", but the send is blocked ("digest delivery was blocked",
+  `preview-query-deleted.png`). Text fix in 11 locales when wanted.
+- 3h. The fallback emoticon path in `IssueDigestMailer#configure_third_party_url_helpers`
+  (`/plugin_assets/...`, not the Propshaft `/assets/plugin_assets/...`) is only used when
+  redmine_wiki_extensions has no `wiki_extensions_emoticon` route; GEOxyz's
+  `jcatrysse/redmine_wiki_extensions` main (1.3.0) has the route, so it is unreachable. Left as is.
+- 3i. `require_relative 'lib/issue_digest/projects_helper_patch'` in `init.rb` on a Zeitwerk
+  path: eager load OK in production on 7.0 and 5.1. Left as is.
 
 **Checks**
 
 4. Run the plugin's whole test suite on Redmine 7.0-stable-GEOxyz with PostgreSQL AND MariaDB, and once on 5.1-stable if the branch is meant to stay 5.1-compatible.
+   **Done**, see "Result": 518/0 on both databases (migrated and schema-only), 518/0/3 pending on 5.1.13.
 5. Check Redmine 7 webhooks against this plugin (see "Rules"), and note the result here even if nothing is needed.
+   **Nothing needed**: the plugin does not patch `Issue`, its API views, visibility or any issue
+   data; its only core patch is `ProjectsHelper#project_settings_tabs`. Webhook payloads are
+   unaffected. Digest rules and runs have no webhook events and need none.
 6. Verify every feature of the plugin by hand on a running Redmine 7 (screenshots).
+   **Done**, see the inventory: every function as admin, manager, viewer (view only),
+   reporter (no plugin permission), outsider and anonymous, with the failure paths.
+
+## Open questions for Jan
+
+1. **`mail_notification = none`** (and the 7.0 option "only my watches"): digests still go to
+   such users, as decided in OQ-02. Options: (a) keep (built, no change); (b) skip users with
+   `none`; (c) a per-rule switch. Recommendation: (a), the PM chose the recipients explicitly;
+   revisit together with a per-user opt-out.
+2. **Users with only `view_digest_rules` cannot reach the rules** through the UI: the tab lives
+   in the project settings, which Redmine opens only with a settings permission (edit project,
+   manage members, ...), and the plugin has no project menu entry (the README promised one; the
+   README now describes what exists). Options: (a) keep; (b) add a project menu entry "Digest
+   rules" for `view_digest_rules`. Recommendation: (b) if viewers are meant to use it; not built
+   because it adds a menu item for every member with the permission.
+3. **E-mail address recipients after the setting is switched off** are still resolved and mailed
+   (the setting only hides the form field; saving the form with the setting off drops them).
+   Addresses only ever reach registered users who may see the project's issues, which for a
+   public project includes non-members (`recipients-show-emails.png`). Options: (a) keep;
+   (b) ignore stored `email:` modes at send time when the setting is off. Recommendation: (b),
+   it matches what an admin expects from switching it off. Not built: changes who gets mail.
 
 ## GEOxyz changes to review or re-apply
 
@@ -64,7 +167,17 @@ Own plugin: all of it is GEOxyz code, so there is nothing to re-apply. While mig
 
 Actions the person doing the upgrade must take, or know about, for this plugin:
 
-- Re-create the cron entries `redmine:issue_digest:send` and `:cleanup`.
+- Re-create the cron entries `redmine:issue_digest:send` and `:cleanup`
+  (`cd <redmine> && RAILS_ENV=production bundle exec rake redmine:issue_digest:send`, every
+  5-15 minutes; `:cleanup` daily).
+- No migration is new on this branch (still 001-010); `rake redmine:plugins:migrate` is a no-op
+  for this plugin when production already runs `main`.
+- **Check the existing rules**: the form bugs fixed here exist in the version GEOxyz runs today
+  (`docs/e2e/before/rule-lifecycle-created.png`). Rules created or saved through the form may
+  carry a wrong timezone, weekday, day of month or interval. Find them with
+  `RAILS_ENV=production bundle exec rails runner 'IssueDigestRule.order(:project_id, :name).each { |r| puts [r.id, r.project.identifier, r.name, r.schedule_type, r.schedule_config, r.timezone].inspect }'`
+  and correct them in the form (now saved correctly); in particular `timezone == "Etc/GMT+12"`
+  is almost certainly the default that should have been UTC or Europe/Brussels.
 
 ## How to test
 
