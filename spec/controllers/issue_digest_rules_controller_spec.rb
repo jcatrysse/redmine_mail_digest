@@ -372,6 +372,15 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       expect(rule.schedule_config).to eq({})
     end
 
+    it 'keeps the stored config when a type with fields is sent without any' do
+      rule = create(:issue_digest_rule, project: project, created_by: user,
+                                        schedule_type: 'weekly', schedule_config: { 'day' => 3 })
+      patch :update, params: { project_id: project.id, id: rule.id,
+                               issue_digest_rule: { schedule_type: 'weekly', name: 'Renamed' } }
+      expect(rule.reload.name).to eq('Renamed')
+      expect(rule.schedule_config).to eq({ 'day' => 3 })
+    end
+
     it 'keeps the schedule config on an update that does not touch the schedule' do
       rule = create(:issue_digest_rule, project: project, created_by: user,
                                         schedule_type: 'weekly', schedule_config: { 'day' => 3 })

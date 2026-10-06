@@ -227,8 +227,13 @@ class IssueDigestRulesController < ApplicationController
   def normalize_schedule_config(permitted)
     config = permitted[:schedule_config]
     # The form disables the fields of the hidden schedule blocks, so a type
-    # without config fields (daily, monthly_last_day, manual) submits none.
-    config = {} if config.nil? && permitted.key?(:schedule_type)
+    # without config fields (daily, monthly_last_day, manual) submits none:
+    # clear the old keys. A type that has fields keeps its stored config when
+    # none is sent.
+    if config.nil? && permitted.key?(:schedule_type) &&
+       !SCHEDULE_CONFIG_KEYS.key?(permitted[:schedule_type].to_s)
+      config = {}
+    end
     return if config.nil?
 
     # Always convert ActionController::Parameters to a plain Ruby Hash so the
