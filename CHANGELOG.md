@@ -1,5 +1,10 @@
 # Changelog
 ## [Unreleased]
+### Changed (Redmine 7 migration)
+- Digest mails carry `Auto-Submitted: auto-generated` and
+  `X-Auto-Response-Suppress: All`, like Redmine's own notifications, so
+  out-of-office and vacation responders do not answer them.
+
 ### Added
 - **In-UI dry-run preview** — the digest rule page now has a "Preview (dry run)"
   button that runs the real send path in dry-run mode (no emails, no records

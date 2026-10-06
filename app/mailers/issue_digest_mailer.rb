@@ -88,6 +88,11 @@ class IssueDigestMailer < ActionMailer::Base
 
   default from: -> { Setting.mail_from }
 
+  # Same headers Redmine's own Mailer sets: auto-replies (out of office,
+  # vacation responders) must not answer an automated digest.
+  default 'Auto-Submitted' => 'auto-generated',
+          'X-Auto-Response-Suppress' => 'All'
+
   # textilizable expands `#123` / `project#42` references into absolute links.
   # Those use Rails route helpers, which need a host. Mirror Redmine's own
   # Mailer.default_url_options (derived from Setting.host_name / protocol) so the

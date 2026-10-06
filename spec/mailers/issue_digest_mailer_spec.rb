@@ -65,6 +65,13 @@ RSpec.describe IssueDigestMailer, type: :mailer do
       expect(mail.from).to eq(['redmine@example.com'])
     end
 
+    # Same as Redmine's own Mailer: out-of-office and auto-reply systems must
+    # not answer a digest (RFC 3834; Exchange honours X-Auto-Response-Suppress).
+    it 'marks the mail as auto-generated' do
+      expect(mail['Auto-Submitted'].to_s).to eq('auto-generated')
+      expect(mail['X-Auto-Response-Suppress'].to_s).to eq('All')
+    end
+
     it 'uses the default subject template when email_subject is blank' do
       expect(mail.subject).to eq("[My Project] Daily open issues — #{Date.current.strftime('%Y-%m-%d')}")
     end
