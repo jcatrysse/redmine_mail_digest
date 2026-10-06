@@ -16,6 +16,14 @@
 - Plugin settings: the hidden field of the e-mail address lookup switch carried
   the checkbox's id, so the id was duplicated and clicking the label did not
   toggle the checkbox.
+- Redmine 6 and 7: form labels and validation messages showed humanized
+  attribute names ("Grace window hours", "End on") in every language instead
+  of the plugin's translations. Redmine 6 moved the `field_*` lookup from
+  `ActiveRecord::Base` to `ApplicationRecord`; the models now inherit from it
+  where it exists.
+- Validation errors for the schedule (time window, days, day of month,
+  interval) and for an end date before the start date read "Translation
+  missing" in every language. Added the messages to all shipped locales.
 
 ### Added
 - **In-UI dry-run preview** — the digest rule page now has a "Preview (dry run)"

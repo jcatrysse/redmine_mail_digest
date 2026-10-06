@@ -38,6 +38,7 @@ uk:
   field_name: "Назва"
   field_active: "Активне"
   field_schedule_type: "Розклад"
+  field_schedule_config: "Розклад"
   field_send_time: "Час відправки"
   field_timezone: "Часовий пояс"
   field_start_on: "Дата початку"
@@ -225,3 +226,12 @@ uk:
       footer_member_notice: "Ви отримали цей дайджест, оскільки є учасником %{project}."
       footer_manage_link: "Керувати налаштуваннями дайджесту"
       footer_generated_by: "Цей дайджест було згенеровано Redmine."
+  activerecord:
+    errors:
+      messages:
+        must_be_on_or_after_start_on: "має бути не раніше дати початку"
+        invalid_time_window: "містить недійсний часовий інтервал (ГГ:ХХ, 24-годинний формат)"
+        invalid_days: "містить недійсний день тижня"
+        invalid_day: "містить недійсний день тижня"
+        invalid_day_of_month: "містить недійсний день місяця (1-28)"
+        invalid_interval: "має бути цілим числом не менше 1"

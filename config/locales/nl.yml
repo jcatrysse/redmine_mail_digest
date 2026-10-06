@@ -38,6 +38,7 @@ nl:
   field_name: "Naam"
   field_active: "Actief"
   field_schedule_type: "Schema"
+  field_schedule_config: "Schema"
   field_send_time: "Verzendtijd"
   field_timezone: "Tijdzone"
   field_start_on: "Startdatum"
@@ -225,3 +226,12 @@ nl:
       footer_member_notice: "U ontving deze digest omdat u lid bent van %{project}."
       footer_manage_link: "Digestinstellingen beheren"
       footer_generated_by: "Deze digest is gegenereerd door Redmine."
+  activerecord:
+    errors:
+      messages:
+        must_be_on_or_after_start_on: "moet op of na de startdatum liggen"
+        invalid_time_window: "heeft een ongeldig tijdvenster (HH:MM, 24-uursnotatie)"
+        invalid_days: "bevat een ongeldige dag van de week"
+        invalid_day: "heeft een ongeldige dag van de week"
+        invalid_day_of_month: "heeft een ongeldige dag van de maand (1-28)"
+        invalid_interval: "moet een geheel getal van 1 of meer zijn"

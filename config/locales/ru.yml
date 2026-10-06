@@ -38,6 +38,7 @@ ru:
   field_name: "Название"
   field_active: "Активно"
   field_schedule_type: "Расписание"
+  field_schedule_config: "Расписание"
   field_send_time: "Время отправки"
   field_timezone: "Часовой пояс"
   field_start_on: "Дата начала"
@@ -225,3 +226,12 @@ ru:
       footer_member_notice: "Вы получили этот дайджест, поскольку являетесь участником %{project}."
       footer_manage_link: "Управление настройками дайджеста"
       footer_generated_by: "Этот дайджест был сгенерирован Redmine."
+  activerecord:
+    errors:
+      messages:
+        must_be_on_or_after_start_on: "должна быть не раньше даты начала"
+        invalid_time_window: "содержит недопустимый временной интервал (ЧЧ:ММ, 24-часовой формат)"
+        invalid_days: "содержит недопустимый день недели"
+        invalid_day: "содержит недопустимый день недели"
+        invalid_day_of_month: "содержит недопустимый день месяца (1-28)"
+        invalid_interval: "должно быть целым числом не меньше 1"

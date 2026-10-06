@@ -38,6 +38,7 @@ it:
   field_name: "Nome"
   field_active: "Attiva"
   field_schedule_type: "Pianificazione"
+  field_schedule_config: "Pianificazione"
   field_send_time: "Ora di invio"
   field_timezone: "Fuso orario"
   field_start_on: "Data inizio"
@@ -225,3 +226,12 @@ it:
       footer_member_notice: "Hai ricevuto questo digest perché sei un membro di %{project}."
       footer_manage_link: "Gestisci impostazioni digest"
       footer_generated_by: "Questo digest è stato generato da Redmine."
+  activerecord:
+    errors:
+      messages:
+        must_be_on_or_after_start_on: "deve essere uguale o successiva alla data di inizio"
+        invalid_time_window: "ha una fascia oraria non valida (HH:MM, formato 24 ore)"
+        invalid_days: "contiene un giorno della settimana non valido"
+        invalid_day: "ha un giorno della settimana non valido"
+        invalid_day_of_month: "ha un giorno del mese non valido (1-28)"
+        invalid_interval: "deve essere un numero intero pari o superiore a 1"

@@ -38,6 +38,7 @@ pl:
   field_name: "Nazwa"
   field_active: "Aktywna"
   field_schedule_type: "Harmonogram"
+  field_schedule_config: "Harmonogram"
   field_send_time: "Czas wysyłki"
   field_timezone: "Strefa czasowa"
   field_start_on: "Data rozpoczęcia"
@@ -225,3 +226,12 @@ pl:
       footer_member_notice: "Otrzymałeś to podsumowanie, ponieważ jesteś członkiem %{project}."
       footer_manage_link: "Zarządzaj ustawieniami podsumowania"
       footer_generated_by: "To podsumowanie zostało wygenerowane przez Redmine."
+  activerecord:
+    errors:
+      messages:
+        must_be_on_or_after_start_on: "musi być równa dacie rozpoczęcia lub późniejsza"
+        invalid_time_window: "ma nieprawidłowy przedział czasu (HH:MM, format 24-godzinny)"
+        invalid_days: "zawiera nieprawidłowy dzień tygodnia"
+        invalid_day: "ma nieprawidłowy dzień tygodnia"
+        invalid_day_of_month: "ma nieprawidłowy dzień miesiąca (1-28)"
+        invalid_interval: "musi być liczbą całkowitą równą 1 lub większą"

@@ -38,6 +38,7 @@ de:
   field_name: "Name"
   field_active: "Aktiv"
   field_schedule_type: "Zeitplan"
+  field_schedule_config: "Zeitplan"
   field_send_time: "Sendezeit"
   field_timezone: "Zeitzone"
   field_start_on: "Startdatum"
@@ -225,3 +226,12 @@ de:
       footer_member_notice: "Sie haben diesen Digest erhalten, weil Sie Mitglied von %{project} sind."
       footer_manage_link: "Digest-Einstellungen verwalten"
       footer_generated_by: "Dieser Digest wurde von Redmine generiert."
+  activerecord:
+    errors:
+      messages:
+        must_be_on_or_after_start_on: "muss am oder nach dem Startdatum liegen"
+        invalid_time_window: "hat ein ungültiges Zeitfenster (HH:MM, 24-Stunden-Format)"
+        invalid_days: "enthält einen ungültigen Wochentag"
+        invalid_day: "hat einen ungültigen Wochentag"
+        invalid_day_of_month: "hat einen ungültigen Tag des Monats (1-28)"
+        invalid_interval: "muss eine ganze Zahl ab 1 sein"

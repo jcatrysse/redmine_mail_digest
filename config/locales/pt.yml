@@ -38,6 +38,7 @@ pt:
   field_name: "Nome"
   field_active: "Ativo"
   field_schedule_type: "Agendamento"
+  field_schedule_config: "Agendamento"
   field_send_time: "Hora de envio"
   field_timezone: "Fuso horário"
   field_start_on: "Data de início"
@@ -225,3 +226,12 @@ pt:
       footer_member_notice: "Recebeu este resumo porque é membro de %{project}."
       footer_manage_link: "Gerir definições de resumo"
       footer_generated_by: "Este resumo foi gerado pelo Redmine."
+  activerecord:
+    errors:
+      messages:
+        must_be_on_or_after_start_on: "deve ser igual ou posterior à data de início"
+        invalid_time_window: "tem uma janela horária inválida (HH:MM, formato 24 horas)"
+        invalid_days: "contém um dia da semana inválido"
+        invalid_day: "tem um dia da semana inválido"
+        invalid_day_of_month: "tem um dia do mês inválido (1-28)"
+        invalid_interval: "deve ser um número inteiro igual ou superior a 1"
