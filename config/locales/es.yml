@@ -58,6 +58,7 @@ es:
   field_filter_watched_by_recipient: "Solo seguidas por el destinatario"
   field_filter_authored_by_recipient: "Solo creadas por el destinatario"
   field_recipient_modes: "Destinatarios"
+  text_email_recipient_not_sent: "no se envía: la búsqueda de destinatarios por correo está desactivada"
   field_group_by: "Agrupar incidencias por"
   field_send_empty: "Enviar aunque no coincidan incidencias"
   field_email_subject: "Asunto del correo (opcional)"
@@ -196,7 +197,7 @@ es:
       max_issues_per_email: "Máximo de incidencias por correo"
       run_history_retention_days: "Retención del historial de ejecuciones (días)"
       allow_external_recipients: "Permitir búsqueda de destinatarios por correo"
-      allow_external_recipients_note: "Cuando está habilitado, aparece el campo «Direcciones de correo electrónico» en los formularios de reglas de digest. Las direcciones se resuelven a usuarios registrados de Redmine con acceso al proyecto; las direcciones externas sin usuario no reciben correo."
+      allow_external_recipients_note: "Cuando está habilitado, aparece el campo «Direcciones de correo electrónico» en los formularios de reglas de digest. Las direcciones se resuelven a usuarios registrados de Redmine con acceso al proyecto; las direcciones externas sin usuario no reciben correo. Si está desactivado, las direcciones ya guardadas en las reglas no reciben correo."
       hint_max_issues_per_email: "Límite máximo aplicado a cada correo de resumen. Rango: 1–5000."
       hint_retention_days: "Los registros de ejecución de resumen más antiguos que este número de días son eliminados por la tarea de limpieza. Establecer en 0 para conservar los registros indefinidamente (la tarea de limpieza omitirá la eliminación)."
 

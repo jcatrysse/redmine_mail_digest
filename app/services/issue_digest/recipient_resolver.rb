@@ -71,7 +71,9 @@ module IssueDigest
       when /\Auser:(\d+)\z/
         specific_user(Regexp.last_match(1).to_i)
       when /\Aemail:(.+)\z/
-        user_by_email(Regexp.last_match(1))
+        # The admin switch governs sending too, not only the form: with the
+        # e-mail address lookup off, stored addresses are not mailed.
+        external_recipients_allowed? ? user_by_email(Regexp.last_match(1)) : []
       else
         []
       end
@@ -120,6 +122,10 @@ module IssueDigest
       return [] unless member
 
       [user]
+    end
+
+    def external_recipients_allowed?
+      ActiveModel::Type::Boolean.new.cast(Setting.plugin_redmine_mail_digest['allow_external_recipients'])
     end
 
     def user_by_email(email)

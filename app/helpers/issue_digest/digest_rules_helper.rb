@@ -101,7 +101,9 @@ module IssueDigest
         user = cache ? cache[:users][id] : User.find_by(id: id)
         "#{l(:recipient_mode_users)} #{user&.name || id}"
       when /\Aemail:(.+)\z/
-        Regexp.last_match(1)
+        address = Regexp.last_match(1)
+        # The resolver skips stored addresses while the lookup is off; say so.
+        external_recipients_allowed? ? address : "#{address} (#{l(:text_email_recipient_not_sent)})"
       else
         mode
       end

@@ -84,7 +84,7 @@ Navigate to **Administration → Plugins → redmine_mail_digest → Configure**
 |---------|---------|-------------|
 | Maximum issues per email | 500 | Hard cap applied to every digest; range 1–5000 |
 | Run history retention (days) | 90 | Digest run records older than this are pruned by the cleanup task. Set to 0 to keep records indefinitely. |
-| Email-address recipient lookup | Off | Allows rule authors to enter email addresses that are resolved to registered Redmine users with project access. External non-user addresses are not mailed. |
+| Email-address recipient lookup | Off | Allows rule authors to enter email addresses that are resolved to registered Redmine users with project access. External non-user addresses are not mailed. Switched off, addresses already stored on rules are not mailed either (the rule page marks them "not sent"). |
 
 ### Enable the module per project
 

@@ -16,6 +16,9 @@
   role allows), as core does for *manage categories*: every save redirects to
   the Digest Rules tab, which was a 403 for a role without another settings
   permission.
+- Switching the **e-mail address lookup** off now also stops mail to the
+  addresses already stored on rules (before, it only hid the form field). The
+  rule pages mark such addresses "not sent".
 
 ### Fixed
 - New rule form: with Redmine's default time zone unset, the timezone select

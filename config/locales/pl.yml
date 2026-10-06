@@ -58,6 +58,7 @@ pl:
   field_filter_watched_by_recipient: "Tylko obserwowane przez odbiorcę"
   field_filter_authored_by_recipient: "Tylko utworzone przez odbiorcę"
   field_recipient_modes: "Odbiorcy"
+  text_email_recipient_not_sent: "nie wysyłane: wyszukiwanie odbiorców po adresie e-mail jest wyłączone"
   field_group_by: "Grupuj zadania według"
   field_send_empty: "Wyślij nawet jeśli brak pasujących zadań"
   field_email_subject: "Temat wiadomości (opcjonalnie)"
@@ -196,7 +197,7 @@ pl:
       max_issues_per_email: "Maksymalna liczba zadań na wiadomość"
       run_history_retention_days: "Okres przechowywania historii wykonań (dni)"
       allow_external_recipients: "Zezwalaj na wyszukiwanie odbiorców po adresie e-mail"
-      allow_external_recipients_note: "Po włączeniu pole «Określone adresy e-mail» pojawia się w formularzach reguł digest. Adresy są mapowane na zarejestrowanych użytkowników Redmine z dostępem do projektu; zewnętrzne adresy bez użytkownika nie otrzymują wiadomości."
+      allow_external_recipients_note: "Po włączeniu pole «Określone adresy e-mail» pojawia się w formularzach reguł digest. Adresy są mapowane na zarejestrowanych użytkowników Redmine z dostępem do projektu; zewnętrzne adresy bez użytkownika nie otrzymują wiadomości. Po wyłączeniu adresy zapisane już w regułach nie otrzymują wiadomości."
       hint_max_issues_per_email: "Twarde ograniczenie stosowane do każdej wiadomości podsumowania. Zakres: 1–5000."
       hint_retention_days: "Rekordy wykonań podsumowania starsze niż ta liczba dni są usuwane przez zadanie czyszczenia. Ustaw 0, aby przechowywać rekordy bezterminowo (zadanie czyszczenia pominie usuwanie)."
 

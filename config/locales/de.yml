@@ -58,6 +58,7 @@ de:
   field_filter_watched_by_recipient: "Nur vom Empfänger beobachtet"
   field_filter_authored_by_recipient: "Nur vom Empfänger erstellt"
   field_recipient_modes: "Empfänger"
+  text_email_recipient_not_sent: "wird nicht gesendet: Empfängersuche per E-Mail-Adresse ist deaktiviert"
   field_group_by: "Issues gruppieren nach"
   field_send_empty: "Senden, auch wenn keine Issues übereinstimmen"
   field_email_subject: "E-Mail-Betreff (optional)"
@@ -196,7 +197,7 @@ de:
       max_issues_per_email: "Maximale Issues pro E-Mail"
       run_history_retention_days: "Aufbewahrungsdauer der Ausführungshistorie (Tage)"
       allow_external_recipients: "Empfängersuche per E-Mail-Adresse erlauben"
-      allow_external_recipients_note: "Wenn aktiviert, erscheint das Feld «Bestimmte E-Mail-Adressen» in den Digest-Regelformularen. Adressen werden registrierten Redmine-Benutzern mit Projektzugang zugeordnet; externe Nicht-Benutzer-Adressen erhalten keine E-Mail."
+      allow_external_recipients_note: "Wenn aktiviert, erscheint das Feld «Bestimmte E-Mail-Adressen» in den Digest-Regelformularen. Adressen werden registrierten Redmine-Benutzern mit Projektzugang zugeordnet; externe Nicht-Benutzer-Adressen erhalten keine E-Mail. Wenn deaktiviert, erhalten bereits in Regeln gespeicherte Adressen keine E-Mail."
       hint_max_issues_per_email: "Harte Obergrenze für jede Digest-E-Mail. Bereich: 1–5000."
       hint_retention_days: "Digest-Ausführungsaufzeichnungen, die älter als diese Anzahl von Tagen sind, werden durch die Bereinigungsaufgabe entfernt. Auf 0 setzen, um Aufzeichnungen unbegrenzt aufzubewahren (die Bereinigungsaufgabe überspringt dann das Löschen)."
 

@@ -161,7 +161,11 @@ RSpec.describe IssueDigest::RecipientResolver, type: :service do
     end
 
     context 'email: mode' do
-      before { allow_any_instance_of(User).to receive(:deliver_security_notification) }
+      before do
+        allow_any_instance_of(User).to receive(:deliver_security_notification)
+        allow(Setting).to receive(:plugin_redmine_mail_digest)
+          .and_return(Setting.plugin_redmine_mail_digest.merge('allow_external_recipients' => '1'))
+      end
 
       it 'resolves a Redmine user by email address when they are a project member' do
         add_member(user_a)
@@ -177,6 +181,26 @@ RSpec.describe IssueDigest::RecipientResolver, type: :service do
         allow(Rails.logger).to receive(:warn)
         described_class.new(email_rule).resolve
         expect(Rails.logger).to have_received(:warn).with(/g\*\*\*@nowhere\.example/)
+      end
+
+      # Decided by Jan: switching the e-mail address lookup off stops mail to
+      # the addresses already stored on rules, not only the form field.
+      it 'ignores stored addresses when the e-mail address lookup is off' do
+        add_member(user_a)
+        allow(Setting).to receive(:plugin_redmine_mail_digest)
+          .and_return(Setting.plugin_redmine_mail_digest.merge('allow_external_recipients' => '0'))
+        email_rule = create(:issue_digest_rule, project: project,
+                            recipient_modes: ["email:#{user_a.mail}"])
+        expect(described_class.new(email_rule).resolve).to eq([])
+      end
+
+      it 'still resolves the other modes when the lookup is off' do
+        add_member(user_a)
+        allow(Setting).to receive(:plugin_redmine_mail_digest)
+          .and_return(Setting.plugin_redmine_mail_digest.merge('allow_external_recipients' => '0'))
+        email_rule = create(:issue_digest_rule, project: project,
+                            recipient_modes: ["email:#{user_a.mail}", "user:#{user_a.id}"])
+        expect(described_class.new(email_rule).resolve.map(&:id)).to eq([user_a.id])
       end
 
       it 'excludes a locked user found by email' do

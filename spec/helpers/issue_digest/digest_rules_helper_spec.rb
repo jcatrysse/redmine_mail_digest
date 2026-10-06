@@ -113,6 +113,17 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
   # ── recipient_mode_label ─────────────────────────────────────────────────
 
   describe '#recipient_mode_label' do
+    it 'shows a stored address as is while the e-mail address lookup is on' do
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return('allow_external_recipients' => '1')
+      expect(helper.recipient_mode_label('email:a@example.net')).to eq('a@example.net')
+    end
+
+    it 'marks a stored address as not sent while the e-mail address lookup is off' do
+      allow(Setting).to receive(:plugin_redmine_mail_digest).and_return('allow_external_recipients' => '0')
+      expect(helper.recipient_mode_label('email:a@example.net'))
+        .to eq("a@example.net (#{I18n.t(:text_email_recipient_not_sent)})")
+    end
+
     it 'returns the project_members label' do
       expect(helper.recipient_mode_label('project_members')).to eq(I18n.t(:recipient_mode_project_members))
     end

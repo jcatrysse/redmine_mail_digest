@@ -58,6 +58,7 @@ it:
   field_filter_watched_by_recipient: "Solo osservate dal destinatario"
   field_filter_authored_by_recipient: "Solo create dal destinatario"
   field_recipient_modes: "Destinatari"
+  text_email_recipient_not_sent: "non inviato: la ricerca destinatari per indirizzo email è disattivata"
   field_group_by: "Raggruppa issue per"
   field_send_empty: "Invia anche se non ci sono issue corrispondenti"
   field_email_subject: "Oggetto email (facoltativo)"
@@ -196,7 +197,7 @@ it:
       max_issues_per_email: "Numero massimo di issue per email"
       run_history_retention_days: "Conservazione della cronologia esecuzioni (giorni)"
       allow_external_recipients: "Consenti ricerca destinatari per indirizzo email"
-      allow_external_recipients_note: "Se abilitato, il campo «Indirizzi e-mail specifici» appare nei moduli delle regole di digest. Gli indirizzi vengono risolti in utenti Redmine registrati con accesso al progetto; gli indirizzi esterni senza utente non ricevono email."
+      allow_external_recipients_note: "Se abilitato, il campo «Indirizzi e-mail specifici» appare nei moduli delle regole di digest. Gli indirizzi vengono risolti in utenti Redmine registrati con accesso al progetto; gli indirizzi esterni senza utente non ricevono email. Se disattivato, gli indirizzi già salvati nelle regole non ricevono email."
       hint_max_issues_per_email: "Limite massimo applicato a ogni email di digest. Intervallo: 1–5000."
       hint_retention_days: "I record delle esecuzioni di digest più vecchi di questo numero di giorni vengono rimossi dall'attività di pulizia. Impostare su 0 per conservare i record indefinitamente (l'attività di pulizia salterà l'eliminazione)."
 

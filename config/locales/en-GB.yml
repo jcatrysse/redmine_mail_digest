@@ -58,6 +58,7 @@ en-GB:
   field_filter_watched_by_recipient: "Only watched by recipient"
   field_filter_authored_by_recipient: "Only authored by recipient"
   field_recipient_modes: "Recipients"
+  text_email_recipient_not_sent: "not sent: e-mail address lookup is off"
   field_group_by: "Group issues by"
   field_send_empty: "Send even if no issues match"
   field_email_subject: "Email subject (optional)"
@@ -196,7 +197,7 @@ en-GB:
       max_issues_per_email: "Maximum issues per email"
       run_history_retention_days: "Run history retention (days)"
       allow_external_recipients: "Allow email-address recipient lookup"
-      allow_external_recipients_note: "When enabled, the 'Specific email addresses' field appears in digest rule forms. Addresses are resolved to registered Redmine users with project access; external non-user addresses are not mailed."
+      allow_external_recipients_note: "When enabled, the 'Specific email addresses' field appears in digest rule forms. Addresses are resolved to registered Redmine users with project access; external non-user addresses are not mailed. When disabled, addresses already stored on rules are not mailed."
       hint_max_issues_per_email: "Hard cap applied to every digest email. Range: 1–5000."
       hint_retention_days: "Digest run records older than this many days are removed by the cleanup task. Set to 0 to keep records indefinitely (the cleanup task will skip deletion)."
 

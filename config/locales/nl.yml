@@ -60,6 +60,7 @@ nl:
   field_filter_watched_by_recipient: "Alleen gevolgd door ontvanger"
   field_filter_authored_by_recipient: "Alleen gemaakt door ontvanger"
   field_recipient_modes: "Ontvangers"
+  text_email_recipient_not_sent: "niet verzonden: ontvangers op e-mailadres zoeken staat uit"
   field_group_by: "Issues groeperen op"
   field_send_empty: "Verzenden ook als er geen issues overeenkomen"
   field_email_subject: "E-mailonderwerp (optioneel)"
@@ -196,7 +197,7 @@ nl:
       max_issues_per_email: "Maximaal aantal issues per e-mail"
       run_history_retention_days: "Bewaarperiode uitvoeringsgeschiedenis (dagen)"
       allow_external_recipients: "Ontvangers op e-mailadres zoeken toestaan"
-      allow_external_recipients_note: "Indien ingeschakeld, verschijnt het veld «Specifieke e-mailadressen» in digest-regelformulieren. Adressen worden gekoppeld aan geregistreerde Redmine-gebruikers met projecttoegang; externe adressen zonder gebruiker ontvangen geen e-mail."
+      allow_external_recipients_note: "Indien ingeschakeld, verschijnt het veld «Specifieke e-mailadressen» in digest-regelformulieren. Adressen worden gekoppeld aan geregistreerde Redmine-gebruikers met projecttoegang; externe adressen zonder gebruiker ontvangen geen e-mail. Uitgeschakeld krijgen adressen die al in regels staan geen e-mail."
       hint_max_issues_per_email: "Harde limiet voor elke digest-e-mail. Bereik: 1–5000."
       hint_retention_days: "Digest-uitvoeringsrecords ouder dan dit aantal dagen worden verwijderd door de opruimtaak. Stel in op 0 om records onbeperkt te bewaren (de opruimtaak slaat verwijdering over)."
 

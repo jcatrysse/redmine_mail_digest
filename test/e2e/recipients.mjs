@@ -84,14 +84,16 @@ try {
   runner(`Setting.plugin_redmine_mail_digest = Setting.plugin_redmine_mail_digest.merge('allow_external_recipients' => '0')`);
 }
 
-// with the setting off again the stored addresses are still resolved at send
-// time (the setting only governs the form): current behaviour, an open
-// question in the plan
+// with the setting off again the stored addresses are not mailed (decided by
+// Jan), and the rule page says so
 clear();
 lines.push(send(assigneesId));
 got = inbox();
 lines.push(`setting off -> mails: ${got.join(', ') || 'none'}`);
-if (got.join() !== 'outsider@example.net,viewer@example.net') t.problems.push(`e-mail addresses with the setting off: mails to ${got.join(', ')}`);
+if (got.length) t.problems.push(`e-mail addresses with the setting off: mails to ${got.join(', ')}`);
+await t.go(`/projects/${P}/digest_rules/${assigneesId}`);
+if (!(await t.page.getByText('viewer@example.net (not sent').count())) t.problems.push('setting off: the rule page does not say the addresses are not sent');
+await t.shot('show-emails-off', 'E-mail address lookup switched off: the stored addresses are marked "not sent" and nobody received the digest');
 
 runner(`IssueDigestRule.where(id: ${assigneesId}).update_all(active: false)`);
 fs.writeFileSync(path.join(process.env.RMP_E2E_OUT || 'docs/e2e', 'recipients-commands.md'),

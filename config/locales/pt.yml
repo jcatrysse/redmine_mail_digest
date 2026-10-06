@@ -58,6 +58,7 @@ pt:
   field_filter_watched_by_recipient: "Apenas seguidas pelo destinatário"
   field_filter_authored_by_recipient: "Apenas criadas pelo destinatário"
   field_recipient_modes: "Destinatários"
+  text_email_recipient_not_sent: "não enviado: a procura de destinatários por e-mail está desativada"
   field_group_by: "Agrupar tarefas por"
   field_send_empty: "Enviar mesmo que não haja tarefas correspondentes"
   field_email_subject: "Assunto do e-mail (opcional)"
@@ -196,7 +197,7 @@ pt:
       max_issues_per_email: "Número máximo de tarefas por e-mail"
       run_history_retention_days: "Retenção do histórico de execuções (dias)"
       allow_external_recipients: "Permitir procura de destinatários por e-mail"
-      allow_external_recipients_note: "Quando ativado, o campo «Endereços de e-mail específicos» aparece nos formulários de regras de digest. Os endereços são associados a utilizadores Redmine registados com acesso ao projeto; endereços externos sem utilizador não recebem e-mail."
+      allow_external_recipients_note: "Quando ativado, o campo «Endereços de e-mail específicos» aparece nos formulários de regras de digest. Os endereços são associados a utilizadores Redmine registados com acesso ao projeto; endereços externos sem utilizador não recebem e-mail. Se desativado, os endereços já guardados nas regras não recebem e-mail."
       hint_max_issues_per_email: "Limite máximo aplicado a cada e-mail de resumo. Intervalo: 1–5000."
       hint_retention_days: "Os registos de execução de resumo mais antigos do que este número de dias são removidos pela tarefa de limpeza. Defina como 0 para manter os registos indefinidamente (a tarefa de limpeza ignorará a eliminação)."
 
