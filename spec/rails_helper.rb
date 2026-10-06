@@ -50,6 +50,14 @@ RSpec.configure do |config|
   # delivery mode and suppress the per-issue send_notification callback so
   # create(:issue) never touches a real mail server.
   config.before(:each) do
+    # Redmine's migrations create the builtin groups and the "Non member" role
+    # with view_issues; a test database loaded from schema.rb has neither, and
+    # User#roles, Issue.visible and IssueQuery depend on them. Create them in
+    # the test transaction so the suite does not depend on seed data.
+    GroupAnonymous.load_instance
+    GroupNonMember.load_instance
+    Role.non_member.add_permission!(:view_issues) unless Role.non_member.has_permission?(:view_issues)
+
     ActionMailer::Base.delivery_method   = :test
     ActionMailer::Base.perform_deliveries = true
     ActionMailer::Base.deliveries.clear

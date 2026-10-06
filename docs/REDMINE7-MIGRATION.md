@@ -27,7 +27,18 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 
 ## Already on this branch
 
-- nothing: the branch equals the branch GEOxyz runs today.
+- Work list item 1: specs create the builtin groups and the Non member role with view_issues
+  themselves (`spec/rails_helper.rb`).
+
+## Baseline (2026-10-06, before any change, branch head `ecd779b`)
+
+Redmine 7.0.1 `7.0-stable-GEOxyz` @ `8067e23`, Rails 8.1.3.1, Ruby 3.3.6.
+
+| Database | Test DB built with | rspec |
+|---|---|---|
+| PostgreSQL 16.15 | `db:migrate` + `redmine:plugins:migrate` | 440 examples, 0 failures |
+| MariaDB 10.11.14 | `db:migrate` + `redmine:plugins:migrate` | 440 examples, 0 failures |
+| PostgreSQL 16.15 | `db:schema:load` (schema only, no builtin groups/roles) | 440 examples, 20 failures (as in the analysis) |
 
 ## Work list for the migration session
 
