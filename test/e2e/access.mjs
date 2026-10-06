@@ -25,8 +25,12 @@ const ruleId = runner(`
 await t.login('manager');
 await t.go(`/projects/${P}/settings/digest_rules`);
 if (!(await t.page.locator('#tab-digest_rules').count())) t.problems.push('manager: no Digest rules tab');
-for (const css of ['#digest-rules-settings a.icon-add svg', '#digest-rules-settings a.icon-edit svg', '#digest-rules-settings .icon-lock svg', '#digest-rules-settings .icon-del svg']) {
-  if (!(await t.page.locator(css).count())) t.problems.push(`manager, settings tab: ${css} missing`);
+// an icon is drawn either by an SVG sprite inside (Redmine 6+) or by the
+// icon-* background image (Redmine 5.1)
+for (const css of ['a.icon-add', 'a.icon-edit', '.icon-lock', '.icon-del']) {
+  const drawn = await t.page.locator(`#digest-rules-settings ${css}`).first().evaluate(el =>
+    !!el.querySelector('svg use') || getComputedStyle(el).backgroundImage !== 'none').catch(() => false);
+  if (!drawn) t.problems.push(`manager, settings tab: ${css} has no icon`);
 }
 await t.shot('tab-manager', 'manager: the Digest rules tab with New, Run history, Edit, Disable, Delete, each with its icon');
 await t.go(`/projects/${P}/digest_rules`);
