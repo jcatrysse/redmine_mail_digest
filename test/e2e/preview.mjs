@@ -9,7 +9,7 @@ const t = await e2e('preview');
 const R = process.env.REDMINE_DIR;
 const runner = (code) => execFileSync('bundle', ['exec', 'rails', 'runner', '-e', 'production', code],
   { cwd: R, encoding: 'utf8' }).trim();
-const rule = (name, extra) => runner(`
+const rule = (name, extra, validate = true) => runner(`
   p = Project.find_by!(identifier: '${P}')
   r = IssueDigestRule.find_or_initialize_by(project_id: p.id, name: '${name}')
   r.assign_attributes(active: true, schedule_type: 'manual', send_time: nil, timezone: 'Etc/UTC',
@@ -17,7 +17,7 @@ const rule = (name, extra) => runner(`
                       recipient_modes: ['project_members'], include_open: true, group_by: 'none',
                       query_id: nil, created_by: User.find_by!(login: 'admin'))
   ${extra || ''}
-  r.save!(validate: false)
+  r.save!(validate: ${validate})
   print r.id`);
 const runs = (id) => runner(`print IssueDigestRun.where(issue_digest_rule_id: ${id}).count`);
 
@@ -51,8 +51,8 @@ const goneId = rule('E2E deleted query rule', `
   q = IssueQuery.new(project: p, name: 'E2E temporary query', user: User.find_by!(login: 'admin'), visibility: Query::VISIBILITY_PUBLIC)
   q.add_filter('status_id', 'o', ['']); q.save!
   r.query_id = q.id
-  r.save!(validate: false)
-  q.destroy`);
+  r.save!
+  q.destroy`, false); // the rule points at a deleted query now: no longer valid, as in the field
 await t.go(`/projects/${P}/digest_rules/${goneId}`);
 if (!(await t.page.locator('.flash.warning').count())) t.problems.push('deleted query: no warning on the rule page');
 rows = await preview(goneId);
