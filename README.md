@@ -4,8 +4,8 @@ A Redmine plugin for scheduled issue digest emails.
 
 `redmine_mail_digest` lets project managers configure rules that send periodic email
 summaries of project issues to configurable recipients on a configurable schedule.
-Digests are sent through Redmine's standard mailer and triggered by a cron-driven
-rake task.
+Digests are sent with Redmine's mail delivery settings (through the plugin's own
+mailer, not Redmine's notification `Mailer`) and triggered by a cron-driven rake task.
 
 ---
 
@@ -32,7 +32,7 @@ rake task.
   command line (`DRY_RUN=1`) or via the **"Preview (dry run)"** button on the rule
   page (shows per-recipient issue counts; no emails sent, nothing written)
 - **HTML and plain-text emails** — multipart email consistent with Redmine's style
-- Compatible with **Redmine 5.1**, **6.0** and **6.1**
+- Compatible with **Redmine 5.1**, **6.0**, **6.1** and **7.0**
 
 ---
 
@@ -40,9 +40,9 @@ rake task.
 
 | Component | Version |
 |-----------|---------|
-| Redmine | 5.1.x, 6.0.x or 6.1.x |
-| Ruby | ≥ 3.0 (5.1) / ≥ 3.2, < 3.5 (6.1) |
-| Rails | 7.0.x (5.1) / 7.2.x (6.1) |
+| Redmine | 5.1.x, 6.0.x, 6.1.x or 7.0.x |
+| Ruby | ≥ 3.0 (5.1) / ≥ 3.2, < 3.5 (6.1) / ≥ 3.2 (7.0) |
+| Rails | 6.1.x (5.1) / 7.2.x (6.1) / 8.1.x (7.0) |
 | Database | PostgreSQL 14+, MySQL 8.0+, or SQLite 3.x |
 
 No additional gems are required beyond those already included in Redmine.
@@ -90,7 +90,9 @@ Navigate to **Administration → Plugins → redmine_mail_digest → Configure**
 
 1. Open a project → **Settings → Modules**.
 2. Check **Issue Digests** and save.
-3. A **Digest Rules** entry appears in the project menu.
+3. A **Digest Rules** tab appears in the project settings (for users with
+   *view digest rules* who can open the project settings). There is no project
+   menu entry; the rule list is also at `/projects/<identifier>/digest_rules`.
 
 ### Permissions
 
@@ -106,7 +108,7 @@ Assign roles in **Administration → Roles and Permissions → Issue Digest**:
 ## Creating a digest rule
 
 1. Open a project with the Issue Digests module enabled.
-2. Click **Digest Rules** in the project menu.
+2. Open **Settings → Digest Rules**.
 3. Click **New digest rule**.
 4. Fill in:
    - **Name** — a descriptive label (e.g. "Daily open issues")
@@ -300,6 +302,7 @@ bundle exec rspec plugins/redmine_mail_digest/spec
 
 GitHub Actions workflows are provided:
 
+- `.github/workflows/rspec-70.yml` — Redmine 7.0 (`7.0-stable-GEOxyz`), Ruby 3.3, PostgreSQL 16
 - `.github/workflows/rspec-61.yml` — Redmine 6.1, Ruby 3.3, PostgreSQL 16
 - `.github/workflows/rspec-60.yml` — Redmine 6.0, PostgreSQL 16
 - `.github/workflows/rspec-51.yml` — Redmine 5.1, Ruby 3.2, PostgreSQL 16
