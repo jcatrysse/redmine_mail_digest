@@ -23,20 +23,20 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | After sync | n.v.t. |
 | Complexity (1 trivial .. 5 rewrite) | 1 |
 | Measured on | Redmine 7.0.1 (`7.0-stable-GEOxyz` @ `8067e23`), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 and MariaDB 10.11.14; also Redmine 5.1.13 (`5.1-stable`), Rails 6.1.7.10, Ruby 3.2.6 |
-| Migration session | done 2026-10-06; work list complete, open questions below |
+| Migration session | done 2026-10-06; work list complete; Jan's decisions on the open questions built the same day |
 | Branch head | see `git log`; this file updated with the last commit |
 
-## Result (2026-10-06)
+## Result (2026-10-06, head `0fe3802` and later)
 
 | Check | PostgreSQL 16 | MariaDB 10.11 | Redmine 5.1.13 (PostgreSQL) |
 |---|---|---|---|
-| rspec, test DB by `db:migrate` | 518 examples, 0 failures | 518 examples, 0 failures | 518 examples, 0 failures, 3 pending (sprite-icon examples skip on 5.1) |
-| rspec, schema-only test DB (`db:schema:load`) | 518 examples, 0 failures (was 20 failures) | 518 examples, 0 failures | - |
+| rspec, test DB by `db:migrate` | 531 examples, 0 failures | 531 examples, 0 failures | 531 examples, 0 failures, 3 pending (sprite-icon examples skip on 5.1) |
+| rspec, schema-only test DB (`db:schema:load`) | 518 examples, 0 failures at `676c93f` (was 20 failures) | 518 examples, 0 failures at `676c93f` | - |
 | plugin migrations down to 0 and up again | 10 reverted, 10 migrated, then 518/0 | 10 reverted, 10 migrated, then 518/0 | - |
 | production boot + eager load | OK (puma, `Rails.application.eager_load!`) | OK | OK |
-| e2e (`./.codex/e2e.sh`, production mode) | 8 scripts (smoke, core, 6 plugin scenarios), 58 screenshots, 0 problems | 8 scripts, 58 screenshots, 0 problems | 8 scripts, 58 screenshots, 0 problems (`docs/e2e/redmine51`) |
-| together with `redmine_wiki_extensions` 1.3.0 (main) | 518/0 and e2e 58/0 | - | - |
-| OpenAI review (`gpt-5`) | no findings (`docs/reviews/openai-2026-10-06-c370138.md`) | | |
+| e2e (`./.codex/e2e.sh`, production mode) | 8 scripts (smoke, core, 6 plugin scenarios), 60 screenshots, 0 problems | 8 scripts, 60 screenshots, 0 problems | 8 scripts, 60 screenshots, 0 problems at `0d6ae0d` (`docs/e2e/redmine51`) |
+| together with `redmine_wiki_extensions` 1.3.0 (main) | rspec and e2e above ran with it installed | - | - |
+| OpenAI review (`gpt-5`) | 3 rounds: `c370138` no findings; `0d6ae0d` 1 finding, fixed; `dbf1efe` 3 findings, 1 fixed, 2 rejected with measurement; `0fe3802` no findings (`docs/reviews/`) | | |
 
 Screenshots: `docs/e2e/*.png` (PostgreSQL, committed and looked at), `docs/e2e/redmine51/`
 (the branch on 5.1), `docs/e2e/before/` (`main` on 5.1, see its README), `docs/e2e/baseline/`
@@ -57,6 +57,10 @@ committed (same pages).
 | `b096951` | Rule form submitted the hidden schedule blocks too: weekly-on-Wednesday saved as Monday, every 3 days as 1 (found in e2e; also on 5.1) | `test/e2e/rule_lifecycle.mjs`, controller spec "clears the schedule config" |
 | `bb2476c`, `0b5c973` | e2e scenarios and screenshots | - |
 | `c370138` | README (Redmine 7, how users reach the rules), manual workflow `rspec-70.yml` | - |
+| `ae10d0d` | Jan's decision on question 2: project menu entry "Digest Rules" for `view_digest_rules`; `manage_digest_rules` also grants `projects#settings` (as core's `manage_categories`), so a save no longer ends on a 403 for a role without another settings permission; back link to the list for view-only users | `spec/plugin/registration_spec.rb` (5 of 6 fail without), controller spec for the back link, `access.mjs` (viewer, digester) |
+| `1bf128c` | Jan's decision on question 3: with the e-mail address lookup off, stored addresses are not mailed and are marked "not sent" (11 locales) | `recipient_resolver_spec` "ignores stored addresses", helper spec, `recipients.mjs` |
+| `dbf1efe` | OpenAI finding: keep a stored schedule config when a type with fields is sent without any | controller spec "keeps the stored config" |
+| `0fe3802` | OpenAI finding: preview scenario saves its rules with validations | - |
 
 ## Baseline (2026-10-06, before any change, branch head `ecd779b`)
 
@@ -76,16 +80,16 @@ Browser baseline (production mode, PostgreSQL): smoke 15 screenshots, core 6, 0 
 | Function | How a user reaches it | Scenario | Screenshots |
 |---|---|---|---|
 | Plugin settings (max issues per mail, retention, e-mail address lookup) | Administration > Plugins > Configure | `settings.mjs` | `settings-form`, `-saved`, `-email-field-on`, `-refused` (non-admin 403), `-anonymous` (login) |
-| Project module + permissions `view_digest_rules` / `manage_digest_rules` | project Settings > Modules; Roles | `access.mjs` | `access-tab-manager`, `-index-manager`, `-index-viewer`, `-show-viewer`, `-new-refused-viewer`, `-index-refused-reporter`, `-private-refused-outsider`, `-anonymous`, `-other-project-404`, `-module-off` |
+| Project module + permissions `view_digest_rules` / `manage_digest_rules` | project Settings > Modules; Roles | `access.mjs` | `access-tab-manager`, `-tab-digester` (only the plugin permissions: settings page with just this tab), `-index-manager`, `-index-viewer`, `-show-viewer`, `-new-refused-viewer`, `-index-refused-reporter`, `-private-refused-outsider`, `-anonymous`, `-other-project-404`, `-module-off` |
 | Digest Rules tab in the project settings | Settings > Digest Rules | `access.mjs`, `rule_lifecycle.mjs` | `access-tab-manager`, `rule-lifecycle-created` |
-| Rule list | `/projects/<id>/digest_rules` | `access.mjs` | `access-index-*` |
+| Rule list, project menu entry "Digest Rules" | project menu (with `view_digest_rules`) | `access.mjs` | `access-index-viewer` (reached through the menu), `access-index-manager` |
 | New rule / create, schedule fields per type, invalid input | New Digest Rule | `rule_lifecycle.mjs` | `rule-lifecycle-new-form`, `-form-every-n-hours`, `-invalid`, `-created` |
 | Show rule (details, formatted intro, run history) | rule name | `rule_lifecycle.mjs`, `digest_send.mjs` | `rule-lifecycle-show`, `digest-send-run-history` |
 | Edit / update, invalid update | Edit | `rule_lifecycle.mjs` | `rule-lifecycle-edit`, `-updated`, `-invalid-update` |
 | Disable / enable | Disable / Enable buttons | `rule_lifecycle.mjs`, `access.mjs` (forged POST as viewer: 403) | `rule-lifecycle-disabled` |
 | Delete (confirm cancelled, then accepted) | Delete | `rule_lifecycle.mjs` | `rule-lifecycle-deleted` |
 | Preview (dry run), saved query filter, deleted saved query | Preview (dry run) on the rule page | `preview.mjs` | `preview-counts`, `-query-and`, `-query-deleted`, `-viewer` (forged POST 403) |
-| Recipient modes: assignees, role, specific user, e-mail addresses | rule form, Recipients | `recipients.mjs` | `recipients-form-assignees`, `-form-role-user`, `-form-emails`, `-show-emails`; output in `recipients-commands.md` |
+| Recipient modes: assignees, role, specific user, e-mail addresses (and the lookup switched off) | rule form, Recipients | `recipients.mjs` | `recipients-form-assignees`, `-form-role-user`, `-form-emails`, `-show-emails`, `-show-emails-off`; output in `recipients-commands.md` |
 | Sending: `rake redmine:issue_digest:send` dry run, manual, scheduled (cron), idempotent window, disabled rule, issue cap; mail content, headers, per-recipient visibility | cron / operator | `digest_send.mjs` | `digest-send-mail-manager`, `-mail-reporter` (private issue absent), `-mail-capped`, `-run-history`; commands and output in `digest-send-commands.md` |
 | Cleanup: `rake redmine:issue_digest:cleanup` | cron | `digest_send.mjs` | `digest-send-commands.md` (one run of 200 days deleted, 3 -> 2) |
 | Webhooks (Redmine 7) | - | not applicable, see work list 5 | - |
@@ -140,24 +144,22 @@ Not fixed (recorded, no change made):
    **Done**, see the inventory: every function as admin, manager, viewer (view only),
    reporter (no plugin permission), outsider and anonymous, with the failure paths.
 
+## Decided by Jan
+
+Answered 2026-10-06 ("1: advies volgen, 2 en 3 bouwen"):
+
+1. **`mail_notification = none`** (and "only my watches"): digests still go to such users, as
+   decided in OQ-02. Kept, no change.
+2. **Users with only `view_digest_rules`** reach the rules through a project menu entry
+   "Digest Rules". Built in `ae10d0d`, together with `projects#settings` for
+   `manage_digest_rules` so the redirects after a save work for every manager role.
+3. **E-mail address recipients with the lookup switched off** are no longer mailed; the rule
+   pages mark them "not sent". Built in `1bf128c`. Addresses still reach only registered users
+   who may see the project's issues, which for a public project includes non-members.
+
 ## Open questions for Jan
 
-1. **`mail_notification = none`** (and the 7.0 option "only my watches"): digests still go to
-   such users, as decided in OQ-02. Options: (a) keep (built, no change); (b) skip users with
-   `none`; (c) a per-rule switch. Recommendation: (a), the PM chose the recipients explicitly;
-   revisit together with a per-user opt-out.
-2. **Users with only `view_digest_rules` cannot reach the rules** through the UI: the tab lives
-   in the project settings, which Redmine opens only with a settings permission (edit project,
-   manage members, ...), and the plugin has no project menu entry (the README promised one; the
-   README now describes what exists). Options: (a) keep; (b) add a project menu entry "Digest
-   rules" for `view_digest_rules`. Recommendation: (b) if viewers are meant to use it; not built
-   because it adds a menu item for every member with the permission.
-3. **E-mail address recipients after the setting is switched off** are still resolved and mailed
-   (the setting only hides the form field; saving the form with the setting off drops them).
-   Addresses only ever reach registered users who may see the project's issues, which for a
-   public project includes non-members (`recipients-show-emails.png`). Options: (a) keep;
-   (b) ignore stored `email:` modes at send time when the setting is off. Recommendation: (b),
-   it matches what an admin expects from switching it off. Not built: changes who gets mail.
+None.
 
 ## GEOxyz changes to review or re-apply
 
@@ -172,6 +174,11 @@ Actions the person doing the upgrade must take, or know about, for this plugin:
   5-15 minutes; `:cleanup` daily).
 - No migration is new on this branch (still 001-010); `rake redmine:plugins:migrate` is a no-op
   for this plugin when production already runs `main`.
+- Behaviour that changes for users: a "Digest Rules" entry in the project menu for roles with
+  *view digest rules*; roles with *manage digest rules* can open the project settings (only the
+  tabs their permissions allow); rules with e-mail address recipients stop mailing those
+  addresses while "Allow email-address recipient lookup" is off in the plugin settings. Check
+  that setting before the upgrade if rules use addresses.
 - **Check the existing rules**: the form bugs fixed here exist in the version GEOxyz runs today
   (`docs/e2e/before/rule-lifecycle-created.png`). Rules created or saved through the form may
   carry a wrong timezone, weekday, day of month or interval. Find them with
