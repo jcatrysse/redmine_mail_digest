@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
-class IssueDigestDelivery < ActiveRecord::Base
+# Redmine 6+ translates attribute names (the field_* locale keys used by form
+# labels and error messages) in ApplicationRecord; Redmine 5.1 has no
+# ApplicationRecord and patches ActiveRecord::Base instead.
+class IssueDigestDelivery < (defined?(ApplicationRecord) ? ApplicationRecord : ActiveRecord::Base)
   STATUSES = %w[sent failed skipped].freeze
 
   belongs_to :issue_digest_run
