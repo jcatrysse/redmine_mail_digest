@@ -226,6 +226,9 @@ class IssueDigestRulesController < ApplicationController
   # so the model's validators (which require Integer values) accept them.
   def normalize_schedule_config(permitted)
     config = permitted[:schedule_config]
+    # The form disables the fields of the hidden schedule blocks, so a type
+    # without config fields (daily, monthly_last_day, manual) submits none.
+    config = {} if config.nil? && permitted.key?(:schedule_type)
     return if config.nil?
 
     # Always convert ActionController::Parameters to a plain Ruby Hash so the

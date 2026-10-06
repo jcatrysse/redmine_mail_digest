@@ -24,6 +24,12 @@
 - Validation errors for the schedule (time window, days, day of month,
   interval) and for an end date before the start date read "Translation
   missing" in every language. Added the messages to all shipped locales.
+- Rule form: the schedule blocks share field names (`schedule_config[day]`
+  for weekly and monthly, `[every]` for every N days/weeks/hours/minutes), and
+  the hidden blocks were submitted too, so the last block won: a weekly rule
+  on Wednesday was saved as Monday, "every 3 days" as every 1 day. Fields of
+  hidden blocks are now disabled, and switching to a type without settings
+  clears the old ones.
 
 ### Added
 - **In-UI dry-run preview** — the digest rule page now has a "Preview (dry run)"

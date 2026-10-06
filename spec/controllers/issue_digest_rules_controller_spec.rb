@@ -359,6 +359,25 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       expect(rule.reload.name).to eq('Renamed')
       expect(rule.updated_by_id).to eq(user.id)
     end
+
+    # The form disables the fields of hidden schedule blocks (they share names,
+    # so the last block's value used to win), so switching to a type without
+    # config fields submits no schedule_config at all: the old keys must go.
+    it 'clears the schedule config when the new type submits none' do
+      rule = create(:issue_digest_rule, project: project, created_by: user,
+                                        schedule_type: 'weekly', schedule_config: { 'day' => 3 })
+      patch :update, params: { project_id: project.id, id: rule.id,
+                               issue_digest_rule: { schedule_type: 'daily', send_time: '08:00' } }
+      expect(rule.reload.schedule_type).to eq('daily')
+      expect(rule.schedule_config).to eq({})
+    end
+
+    it 'keeps the schedule config on an update that does not touch the schedule' do
+      rule = create(:issue_digest_rule, project: project, created_by: user,
+                                        schedule_type: 'weekly', schedule_config: { 'day' => 3 })
+      patch :update, params: { project_id: project.id, id: rule.id, issue_digest_rule: { name: 'Renamed' } }
+      expect(rule.reload.schedule_config).to eq({ 'day' => 3 })
+    end
   end
 
   describe 'DELETE #destroy' do

@@ -347,9 +347,14 @@
       var isSubDaily = (subDailyTypes.indexOf(value) !== -1);
 
       // Show the matching schedule-config block; support space-separated multi-value in data-show-for
+      // Several blocks share a field name (schedule_config[day], [every],
+      // [days][]): disable the fields of the hidden blocks so only the visible
+      // block is submitted, otherwise the last block's value wins.
       blocks.forEach(function(el) {
         var showFor = (el.getAttribute('data-show-for') || '').split(/\s+/);
-        el.style.display = (showFor.indexOf(value) !== -1) ? '' : 'none';
+        var shown = (showFor.indexOf(value) !== -1);
+        el.style.display = shown ? '' : 'none';
+        el.querySelectorAll('input, select').forEach(function(input) { input.disabled = !shown; });
       });
 
       // Update sub-daily "every N" label to reflect hours vs minutes
