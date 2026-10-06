@@ -8,6 +8,15 @@
   delete) draw their icon with Redmine's SVG sprites on Redmine 6 and 7, where
   the `icon-*` background images are gone. Redmine 5.1 keeps the CSS icons.
 
+- **Digest Rules in the project menu** for users with *view digest rules*:
+  the project settings, where the tab lives, need a settings permission that
+  view-only users lack, so they had no way to the rules. The rule page's back
+  link leads them to the list.
+- *Manage digest rules* now opens the project settings (only the tabs the
+  role allows), as core does for *manage categories*: every save redirects to
+  the Digest Rules tab, which was a 403 for a role without another settings
+  permission.
+
 ### Fixed
 - New rule form: with Redmine's default time zone unset, the timezone select
   preselected "(UTC-12:00) International Date Line West" instead of UTC (the

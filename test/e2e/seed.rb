@@ -3,6 +3,8 @@
 #
 #   viewer   member of e2e-project with "E2E digest viewer": view_issues and
 #            view_digest_rules, not manage_digest_rules
+#   digester member of e2e-project with "E2E digest manager": view_issues and
+#            both plugin permissions, no other settings permission
 #   a private issue in e2e-project that the reporter may not see
 #   a public saved query in e2e-project for the query filter
 password = ENV.fetch('RMP_USER_PASSWORD', ENV.fetch('RMP_ADMIN_PASSWORD', 'Redmine7Test!'))
@@ -24,6 +26,21 @@ role.issues_visibility = 'default'
 role.save!
 Member.create!(principal: viewer, project: project, roles: [role]) unless Member.where(user_id: viewer.id, project_id: project.id).exists?
 
+digester = User.find_by(login: 'digester') ||
+           User.new(login: 'digester', firstname: 'Digester', lastname: 'E2E', mail: 'digester@example.net')
+digester.password = digester.password_confirmation = password
+digester.must_change_passwd = false
+digester.status = User::STATUS_ACTIVE
+digester.save!(validate: false)
+
+manager_role = Role.find_by(name: 'E2E digest manager') || Role.new(name: 'E2E digest manager')
+manager_role.permissions = [:view_issues, :view_digest_rules, :manage_digest_rules]
+manager_role.issues_visibility = 'default'
+manager_role.save!
+unless Member.where(user_id: digester.id, project_id: project.id).exists?
+  Member.create!(principal: digester, project: project, roles: [manager_role])
+end
+
 unless Issue.where(project_id: project.id, subject: 'E2E private issue in public project').exists?
   issue = Issue.new(project: project, tracker: project.trackers.first, author: admin,
                     subject: 'E2E private issue in public project', is_private: true,
@@ -39,5 +56,5 @@ unless IssueQuery.where(project_id: project.id, name: 'E2E open issues query').e
   query.save!
 end
 
-puts "Plugin seed: viewer, #{Issue.where(project_id: project.id).count} issues in e2e-project, " \
+puts "Plugin seed: viewer, digester, #{Issue.where(project_id: project.id).count} issues in e2e-project, " \
      "query #{IssueQuery.find_by(name: 'E2E open issues query')&.id}"

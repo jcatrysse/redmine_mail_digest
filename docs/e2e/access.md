@@ -1,14 +1,15 @@
 # access
 
-Run 2026-10-06T20:26:00.003Z against http://127.0.0.1:3000.
+Run 2026-10-06T20:43:41.857Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|
 | ![](access-tab-manager.png) | manager | `/projects/e2e-project/settings/digest_rules` | manager: the Digest rules tab with New, Run history, Edit, Disable, Delete, each with its icon |
 | ![](access-index-manager.png) | manager | `/projects/e2e-project/digest_rules` | manager: the rule list page with the New digest rule link |
-| ![](access-index-viewer.png) | viewer | `/projects/e2e-project/digest_rules` | viewer (view only): the rule list with the Run history link, no New/Edit/Disable/Delete |
-| ![](access-show-viewer.png) | viewer | `/projects/e2e-project/digest_rules/1` | viewer: the rule page without Preview, Edit, Disable or Delete |
+| ![](access-index-viewer.png) | viewer | `/projects/e2e-project/digest_rules` | viewer (view only): "Digest Rules" in the project menu opens the rule list; Run history only, no New/Edit/Disable/Delete |
+| ![](access-show-viewer.png) | viewer | `/projects/e2e-project/digest_rules/1` | viewer: the rule page without Preview, Edit, Disable or Delete; the back link leads to the rule list |
 | ![](access-new-refused-viewer.png) | viewer | `/projects/e2e-project/digest_rules/1/edit` | viewer: the new rule form is refused (403) |
+| ![](access-tab-digester.png) | digester | `/projects/e2e-project/settings/digest_rules` | digester (manage_digest_rules, no other settings permission): the settings page shows only the Digest Rules tab, a disable lands back on it |
 | ![](access-index-refused-reporter.png) | reporter | `/projects/e2e-project/digest_rules` | reporter (no plugin permission): the rule list is refused (403) |
 | ![](access-private-refused-outsider.png) | outsider | `/projects/e2e-private/digest_rules` | outsider: the rules of the private project are refused (403) |
 | ![](access-anonymous.png) | anonymous | `/login?back_url=http%3A%2F%2F127.0.0.1%3A3000%2Fprojects%2Fe2e-project%2Fdigest_rules` | anonymous: sent to the login page |

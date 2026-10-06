@@ -1,5 +1,11 @@
 <p class="back-url">
-  <%= link_to "← #{l(:label_issue_digest_rules)}", settings_project_path(@project, tab: 'digest_rules') %>
+  <%# Users with view_digest_rules alone cannot open the project settings. %>
+  <% back_path = if User.current.allowed_to?({ controller: 'projects', action: 'settings' }, @project)
+                   settings_project_path(@project, tab: 'digest_rules')
+                 else
+                   project_issue_digest_rules_path(@project)
+                 end %>
+  <%= link_to "← #{l(:label_issue_digest_rules)}", back_path %>
 </p>
 
 <div class="contextual">

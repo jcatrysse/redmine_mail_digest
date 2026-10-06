@@ -23,9 +23,20 @@ Redmine::Plugin.register :redmine_mail_digest do
     permission :view_digest_rules,
                { 'issue_digest_rules' => [:index, :show] },
                read: true
+    # projects#settings, as core does for manage_categories and manage_versions:
+    # the rules are managed in the project settings tab, and every save
+    # redirects there.
     permission :manage_digest_rules,
-               { 'issue_digest_rules' => [:new, :create, :edit, :update, :destroy, :enable, :disable, :preview] }
+               { 'issue_digest_rules' => [:new, :create, :edit, :update, :destroy, :enable, :disable, :preview],
+                 'projects' => [:settings] }
   end
+
+  # The settings tab needs a settings permission, which view_digest_rules does
+  # not give; the menu entry lets those users reach the rule list. Shown when
+  # the module is on and the user may see the index.
+  menu :project_menu, :issue_digest_rules,
+       { controller: 'issue_digest_rules', action: 'index' },
+       caption: :label_issue_digest_rules, param: :project_id, before: :settings
 end
 
 # Redmine's PluginLoader already runs init.rb from within its own to_prepare

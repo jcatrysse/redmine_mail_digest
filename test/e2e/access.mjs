@@ -37,18 +37,26 @@ await t.go(`/projects/${P}/digest_rules`);
 await t.shot('index-manager', 'manager: the rule list page with the New digest rule link');
 
 // viewer: view_digest_rules alone does not open the project settings (Redmine
-// needs a settings permission such as edit_project), and the plugin has no
-// project menu entry, so the list is reached by its URL. See the plan.
+// needs a settings permission), so the project menu entry leads to the list.
 await t.login('viewer');
 await t.go(`/projects/${P}/settings/digest_rules`, { status: 403 });
-await t.go(`/projects/${P}/digest_rules`);
+await t.go(`/projects/${P}`);
+const menuEntry = t.page.locator('#main-menu a.issue-digest-rules');
+if (!(await menuEntry.count())) t.problems.push('viewer: no Digest Rules entry in the project menu');
+await menuEntry.click();
+await t.settle();
+t.check('viewer menu entry');
+if (!new URL(t.page.url()).pathname.endsWith(`/projects/${P}/digest_rules`)) t.problems.push(`viewer: menu entry led to ${t.page.url()}`);
+if (!(await t.page.locator('#main-menu a.issue-digest-rules.selected').count())) t.problems.push('viewer: menu entry not selected on the rule list');
 if (await t.page.locator('a.icon-add, a.icon-edit, .icon-lock, .icon-del').count()) {
   t.problems.push('viewer: manage links shown without manage_digest_rules');
 }
-await t.shot('index-viewer', 'viewer (view only): the rule list with the Run history link, no New/Edit/Disable/Delete');
+await t.shot('index-viewer', 'viewer (view only): "Digest Rules" in the project menu opens the rule list; Run history only, no New/Edit/Disable/Delete');
 await t.go(`/projects/${P}/digest_rules/${ruleId}`);
 if (await t.page.locator('a.icon-test, a.icon-edit').count()) t.problems.push('viewer: preview/edit shown on the rule page');
-await t.shot('show-viewer', 'viewer: the rule page without Preview, Edit, Disable or Delete');
+const back = await t.page.locator('p.back-url a').getAttribute('href');
+if (back !== `/projects/${P}/digest_rules`) t.problems.push(`viewer: back link to ${back}`);
+await t.shot('show-viewer', 'viewer: the rule page without Preview, Edit, Disable or Delete; the back link leads to the rule list');
 await t.go(`/projects/${P}/digest_rules/new`, { status: 403 });
 await t.go(`/projects/${P}/digest_rules/${ruleId}/edit`, { status: 403 });
 await t.shot('new-refused-viewer', 'viewer: the new rule form is refused (403)');
@@ -71,7 +79,26 @@ t.check('viewer posts', { requests: ['403 fetch'] });
 for (const [k, v] of Object.entries(viewerPosts)) if (v !== 403) t.problems.push(`viewer: POST ${k} returned ${v}, expected 403`);
 if (runner(`print IssueDigestRule.find(${ruleId}).active`) !== 'true') t.problems.push('viewer: the rule was disabled');
 
+// digester: both plugin permissions and no other settings permission. The
+// settings page opens with only the Digest Rules tab, and a save lands there.
+await t.login('digester');
+await t.go(`/projects/${P}/settings/digest_rules`);
+const tabs = await t.page.locator('.tabs a[id^=tab-]').allTextContents();
+if (tabs.length !== 1 || !(await t.page.locator('#tab-digest_rules').count())) t.problems.push(`digester: settings tabs ${tabs.join(', ')}`);
+await t.page.locator('#digest-rules-settings tr', { hasText: 'E2E access rule' }).locator('button.icon-lock').click();
+await t.settle();
+t.check('digester disable');
+if (!new URL(t.page.url()).pathname.startsWith(`/projects/${P}/settings`) || !(await t.page.locator('#flash_notice').count())) {
+  t.problems.push(`digester: disable did not land on the settings tab with a notice (${t.page.url()})`);
+}
+await t.shot('tab-digester', 'digester (manage_digest_rules, no other settings permission): the settings page shows only the Digest Rules tab, a disable lands back on it');
+await t.page.locator('#digest-rules-settings tr', { hasText: 'E2E access rule' }).locator('button.icon-unlock').click();
+await t.settle();
+t.check('digester enable');
+
 await t.login('reporter');
+await t.go(`/projects/${P}`);
+if (await t.page.locator('#main-menu a.issue-digest-rules').count()) t.problems.push('reporter: Digest Rules entry in the project menu');
 await t.go(`/projects/${P}/settings`, { status: 403 });
 await t.go(`/projects/${P}/digest_rules`, { status: 403 });
 await t.shot('index-refused-reporter', 'reporter (no plugin permission): the rule list is refused (403)');

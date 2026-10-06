@@ -90,9 +90,9 @@ Navigate to **Administration → Plugins → redmine_mail_digest → Configure**
 
 1. Open a project → **Settings → Modules**.
 2. Check **Issue Digests** and save.
-3. A **Digest Rules** tab appears in the project settings (for users with
-   *view digest rules* who can open the project settings). There is no project
-   menu entry; the rule list is also at `/projects/<identifier>/digest_rules`.
+3. A **Digest Rules** entry appears in the project menu (for users with
+   *view digest rules*), and a **Digest Rules** tab in the project settings
+   (*manage digest rules* opens the project settings for that tab).
 
 ### Permissions
 
@@ -100,15 +100,15 @@ Assign roles in **Administration → Roles and Permissions → Issue Digest**:
 
 | Permission | Recommended roles |
 |-----------|-----------------|
-| `manage_digest_rules` | Manager, Project Manager |
-| `view_digest_rules` | Developer, Reporter (optional) |
+| `manage_digest_rules` | Manager, Project Manager (also opens the project settings, for the Digest Rules tab) |
+| `view_digest_rules` | Developer, Reporter (optional; the project menu entry) |
 
 ---
 
 ## Creating a digest rule
 
 1. Open a project with the Issue Digests module enabled.
-2. Open **Settings → Digest Rules**.
+2. Open **Settings → Digest Rules** (or **Digest Rules** in the project menu).
 3. Click **New digest rule**.
 4. Fill in:
    - **Name** — a descriptive label (e.g. "Daily open issues")

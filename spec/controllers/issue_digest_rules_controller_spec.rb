@@ -459,6 +459,31 @@ RSpec.describe IssueDigestRulesController, type: :controller do
     end
   end
 
+  # The back link must lead to a page the user can open: the settings tab for
+  # managers (manage_digest_rules opens projects#settings), the rule list for
+  # users with view_digest_rules alone.
+  describe 'GET #show back link' do
+    let!(:rule) { create(:issue_digest_rule, project: project, created_by: user) }
+
+    def back_href
+      Nokogiri::HTML(response.body).at_css('p.back-url a')['href']
+    end
+
+    it 'leads managers to the Digest Rules settings tab' do
+      get :show, params: { project_id: project.id, id: rule.id }
+      expect(back_href).to eq(settings_project_path(project, tab: 'digest_rules'))
+    end
+
+    it 'leads view-only users to the rule list' do
+      viewer = create(:user)
+      Member.create!(project: project, user: viewer, roles: [non_manager_role])
+      allow(controller).to receive(:find_current_user).and_return(viewer)
+      allow(User).to receive(:current).and_return(viewer)
+      get :show, params: { project_id: project.id, id: rule.id }
+      expect(back_href).to eq(project_issue_digest_rules_path(project))
+    end
+  end
+
   describe 'IDOR protection' do
     it 'returns 404 when accessing a rule from another project' do
       other_rule = create(:issue_digest_rule, project: other_project, created_by: user)
