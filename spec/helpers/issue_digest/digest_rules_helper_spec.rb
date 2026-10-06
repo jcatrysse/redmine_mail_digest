@@ -373,4 +373,21 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
       expect(html).to include('badge-warning')
     end
   end
+
+  describe '#digest_icon_label' do
+    it 'returns an SVG sprite with the label when Redmine has sprite_icon' do
+      skip 'Redmine 5.1 has no sprite_icon' unless helper.respond_to?(:sprite_icon)
+
+      html = helper.digest_icon_label('edit', 'Edit')
+      expect(html).to include('<svg')
+      expect(html).to include('#icon--edit')
+      expect(html).to include('Edit')
+    end
+
+    it 'returns the label alone when Redmine has no sprite_icon' do
+      allow(helper).to receive(:respond_to?).and_call_original
+      allow(helper).to receive(:respond_to?).with(:sprite_icon).and_return(false)
+      expect(helper.digest_icon_label('edit', 'Edit')).to eq('Edit')
+    end
+  end
 end

@@ -73,6 +73,19 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       get :index, params: { project_id: project.id }
       expect(response).to have_http_status(:ok)
     end
+
+    # Redmine 6+ dropped the icon-* background images: without an SVG sprite
+    # inside, the action links render without an icon.
+    it 'draws the action icons as SVG sprites where Redmine has them' do
+      skip 'Redmine 5.1 draws icons with CSS' unless ApplicationController.helpers.respond_to?(:sprite_icon)
+
+      create(:issue_digest_rule, project: project, created_by: user, active: true)
+      get :index, params: { project_id: project.id }
+      doc = Nokogiri::HTML(response.body)
+      %w[icon-add icon-time icon-edit icon-lock icon-del].each do |css|
+        expect(doc.css(".#{css} svg use").size).to be >= 1, "no SVG icon in .#{css}"
+      end
+    end
   end
 
   describe 'GET #show' do
@@ -80,6 +93,17 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       rule = create(:issue_digest_rule, project: project, created_by: user)
       get :show, params: { project_id: project.id, id: rule.id }
       expect(response).to have_http_status(:ok)
+    end
+
+    it 'draws the action icons as SVG sprites where Redmine has them' do
+      skip 'Redmine 5.1 draws icons with CSS' unless ApplicationController.helpers.respond_to?(:sprite_icon)
+
+      rule = create(:issue_digest_rule, project: project, created_by: user, active: false)
+      get :show, params: { project_id: project.id, id: rule.id }
+      doc = Nokogiri::HTML(response.body)
+      %w[icon-test icon-edit icon-unlock icon-del].each do |css|
+        expect(doc.css(".#{css} svg use").size).to be >= 1, "no SVG icon in .#{css}"
+      end
     end
 
     it 'sets @total_run_count to the total number of runs' do
@@ -112,6 +136,7 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       get :new, params: { project_id: project.id }
       expect(response).to have_http_status(:ok)
     end
+
   end
 
   describe 'GET #new — rich intro editor (regression)' do

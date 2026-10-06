@@ -1,6 +1,6 @@
 <div class="contextual">
   <% if User.current.allowed_to?(:manage_digest_rules, @project) %>
-    <%= link_to l(:label_new_issue_digest_rule),
+    <%= link_to digest_icon_label('add', l(:label_new_issue_digest_rule)),
                 new_project_issue_digest_rule_path(@project),
                 class: 'icon icon-add' %>
   <% end %>

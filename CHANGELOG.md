@@ -4,6 +4,9 @@
 - Digest mails carry `Auto-Submitted: auto-generated` and
   `X-Auto-Response-Suppress: All`, like Redmine's own notifications, so
   out-of-office and vacation responders do not answer them.
+- Action links and buttons (new, edit, run history, preview, enable, disable,
+  delete) draw their icon with Redmine's SVG sprites on Redmine 6 and 7, where
+  the `icon-*` background images are gone. Redmine 5.1 keeps the CSS icons.
 
 ### Added
 - **In-UI dry-run preview** — the digest rule page now has a "Preview (dry run)"

@@ -162,6 +162,13 @@ module IssueDigest
       end
     end
 
+    # Icon plus label for the action links and buttons. Redmine 6+ draws its
+    # icons as SVG sprites (the icon-* CSS background images are gone); on 5.1
+    # the icon-* class on the element still draws the icon, so only the label.
+    def digest_icon_label(icon, label)
+      respond_to?(:sprite_icon) ? sprite_icon(icon, label) : label
+    end
+
     def available_queries_for_project(project)
       return IssueQuery.none unless project.module_enabled?(:issue_tracking)
 
