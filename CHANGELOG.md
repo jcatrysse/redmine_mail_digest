@@ -13,6 +13,9 @@
   preselected "(UTC-12:00) International Date Line West" instead of UTC (the
   default `UTC` matched no option; the select lists `Etc/UTC`). Saving the
   form unchanged scheduled the digest 12 hours late.
+- Plugin settings: the hidden field of the e-mail address lookup switch carried
+  the checkbox's id, so the id was duplicated and clicking the label did not
+  toggle the checkbox.
 
 ### Added
 - **In-UI dry-run preview** — the digest rule page now has a "Preview (dry run)"

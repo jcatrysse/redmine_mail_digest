@@ -27,7 +27,7 @@
     <label for="settings_allow_external_recipients">
       <%= l('redmine_mail_digest.settings.allow_external_recipients') %>
     </label>
-    <%= hidden_field_tag 'settings[allow_external_recipients]', '0' %>
+    <%= hidden_field_tag 'settings[allow_external_recipients]', '0', id: nil %>
     <%= check_box_tag 'settings[allow_external_recipients]',
                       '1',
                       ActiveModel::Type::Boolean.new.cast(settings['allow_external_recipients']),
