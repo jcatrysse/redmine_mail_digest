@@ -144,19 +144,24 @@ class IssueDigestRulesController < ApplicationController
     }
   end
 
+  # The timezone select offers tzinfo identifiers; UTC is listed as 'Etc/UTC'.
+  # A plain 'UTC' default matches no option and the browser would preselect the
+  # first one, (UTC-12:00) International Date Line West.
+  DEFAULT_TIMEZONE = 'Etc/UTC'
+
   def default_timezone_iana
     # Redmine stores the global timezone preference under `default_users_time_zone`,
     # not `default_timezone`. Fall back to UTC when the setting is absent or blank.
     key = Setting.respond_to?(:default_users_time_zone) ? :default_users_time_zone : nil
-    return 'UTC' unless key
+    return DEFAULT_TIMEZONE unless key
 
     as_name = Setting.public_send(key).to_s.presence
-    return 'UTC' if as_name.blank?
+    return DEFAULT_TIMEZONE if as_name.blank?
 
     tz = ActiveSupport::TimeZone[as_name]
-    tz ? tz.tzinfo.name : 'UTC'
+    tz ? tz.tzinfo.name : DEFAULT_TIMEZONE
   rescue StandardError
-    'UTC'
+    DEFAULT_TIMEZONE
   end
 
   def digest_rule_params

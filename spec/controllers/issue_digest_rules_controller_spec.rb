@@ -137,6 +137,22 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       expect(response).to have_http_status(:ok)
     end
 
+    # Regression: with Redmine's default time zone unset the default was 'UTC',
+    # which is not an option value ('Etc/UTC' is), so the browser preselected the
+    # first option, (UTC-12:00) International Date Line West, and saved that.
+    it 'preselects UTC in the timezone select when Redmine has no default time zone' do
+      allow(Setting).to receive(:default_users_time_zone).and_return('')
+      get :new, params: { project_id: project.id }
+      selected = Nokogiri::HTML(response.body).css('#issue_digest_rule_timezone option[selected]')
+      expect(selected.map { |o| o['value'] }).to eq(['Etc/UTC'])
+    end
+
+    it 'preselects the Redmine default time zone when one is set' do
+      allow(Setting).to receive(:default_users_time_zone).and_return('Brussels')
+      get :new, params: { project_id: project.id }
+      selected = Nokogiri::HTML(response.body).css('#issue_digest_rule_timezone option[selected]')
+      expect(selected.map { |o| o['value'] }).to eq(['Europe/Brussels'])
+    end
   end
 
   describe 'GET #new — rich intro editor (regression)' do

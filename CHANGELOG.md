@@ -8,6 +8,12 @@
   delete) draw their icon with Redmine's SVG sprites on Redmine 6 and 7, where
   the `icon-*` background images are gone. Redmine 5.1 keeps the CSS icons.
 
+### Fixed
+- New rule form: with Redmine's default time zone unset, the timezone select
+  preselected "(UTC-12:00) International Date Line West" instead of UTC (the
+  default `UTC` matched no option; the select lists `Etc/UTC`). Saving the
+  form unchanged scheduled the digest 12 hours late.
+
 ### Added
 - **In-UI dry-run preview** — the digest rule page now has a "Preview (dry run)"
   button that runs the real send path in dry-run mode (no emails, no records
