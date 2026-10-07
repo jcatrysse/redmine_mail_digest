@@ -26,7 +26,16 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Migration session | done 2026-10-06; work list complete; Jan's decisions on the open questions built the same day |
 | Branch head | see `git log`; this file updated with the last commit |
 
-## Result (2026-10-06, head `0fe3802` and later)
+## Result (2026-10-07, head `b5de1c5` and later)
+
+| Check | PostgreSQL 16, Redmine 7.0-stable-GEOxyz |
+|---|---|
+| rspec, plugin alone | 533 examples, 0 failures |
+| rspec, with 8 other GEOxyz plugins (ai_summary, custom_workflows, depending_custom_fields, issue_view_columns, itil_priority, project_workflows, reporter_dashboards, wiki_extensions; their `redmine70-migration` branches, wiki_extensions `main`) | 533 examples, 0 failures |
+| Project > Settings, Digest Rules tab, issue list, issue page with those plugins | 200 for admin, manager, digester |
+| e2e with those plugins | 8 scripts, 60 screenshots, 0 problems |
+
+## Result (2026-10-06, head `0fe3802`; history)
 
 | Check | PostgreSQL 16 | MariaDB 10.11 | Redmine 5.1.13 (PostgreSQL) |
 |---|---|---|---|
@@ -146,6 +155,29 @@ Not fixed (recorded, no change made):
 
 ## Decided by Jan
 
+General decisions for every GEOxyz plugin, 2026-10-07 (`docs/DECISIONS-2026-10-07.md`):
+
+- **Straight to Redmine 7, no 5.1.** Done in `b5de1c5`: the 5.1 code paths added during the
+  migration are gone (models on `ApplicationRecord`, `sprite_icon` without fallback),
+  `requires_redmine` 6.0.0, the 5.1 workflow removed. The 5.1 results below stay as history.
+- **PostgreSQL only.** Rules above updated. The MariaDB runs below stay as history; no
+  MariaDB-only problem was found.
+- **deface without a version constraint.** Not applicable: the plugin does not use deface.
+- **No `alias_method` on core methods other plugins patch.** `ProjectsHelper#project_settings_tabs`
+  was an alias chain; at least seven other GEOxyz plugins wrap it (alias chains: ai_summary,
+  depending_custom_fields, itil_priority; prepend on ProjectsHelper: wiki_extensions; controller
+  helper: custom_workflows, issue_view_columns, project_workflows, reporter_dashboards).
+  Measured on Redmine 7, production, this plugin plus a fixture plugin that prepends onto
+  `ProjectsHelper` and loads first: alias chain (old) -> Project > Settings **500**; new -> 200.
+  Built in `87d79f2` with `ProjectsController.helper`, not with `ProjectsHelper.prepend`: a
+  prepend followed by a later plugin's alias chain fails too (`super: no superclass method`,
+  measured with wiki_extensions' prepend and an alias fixture), while a module in the
+  controller's helper chain is outside `ProjectsHelper.ancestors` and composes in any load
+  order; the same pattern reporter_dashboards and custom_workflows use. With the eight GEOxyz
+  plugins above installed: Project > Settings, the Digest Rules tab, the issue list and an issue
+  answer 200 for admin, manager and digester.
+- **GitHub Actions manual only.** All workflows are `workflow_dispatch`.
+
 Answered 2026-10-06 ("1: advies volgen, 2 en 3 bouwen"):
 
 1. **`mail_notification = none`** (and "only my watches"): digests still go to such users, as
@@ -224,9 +256,8 @@ results quoted in the analysis come from it.
 4. **GEOxyz changes**: go through the table above, one item at a time. Each kept or re-made change
    is its own commit with a test that proves it. Record the verdict in the table.
 5. **Work list**: then the numbered list, in order. One concern per commit.
-6. **Portability**: everything must run on Redmine's supported databases (PostgreSQL,
-   MySQL/MariaDB; SQLite where the plugin already supports it). Migrations must be reversible and
-   are run down and up on PostgreSQL and MariaDB.
+6. **Portability**: PostgreSQL is the database (Jan, 2026-10-07); keep SQL portable where that
+   costs nothing. Migrations must be reversible and are run down and up on PostgreSQL.
 7. **Together**: run with the other GEOxyz plugins installed (the migration kit's harness, or
    `RMP_EXTRA_PLUGINS`). A failure that only appears in combination is a finding to record here.
 8. **End to end, visually, every function**: on the real Redmine from `start_server.sh`
@@ -290,8 +321,15 @@ results quoted in the analysis come from it.
   (on by default: `t.sudo()` in a scenario). The breaker list is in the migration kit's CHECKLIST.md.
 - **Locales**: keep the locales the plugin ships in sync; translate a new key by matching the
   closest existing key in the same file, not from scratch; do not add new languages.
-- **5.1 compatibility**: prefer fixes that also run on Redmine 5.1 so they can be merged early;
-  say so when a fix cannot.
+- **No 5.1** (Jan, 2026-10-07): GEOxyz goes straight to Redmine 7; nothing is backported or
+  cherry-picked to the default branch or to what production runs today. No code paths that exist
+  only for Redmine 5.1.
+- **PostgreSQL only** (Jan, 2026-10-07): production runs PostgreSQL 16; tests and the e2e set run
+  on PostgreSQL. Keep SQL portable where that costs nothing; a MariaDB-only problem is a note
+  here, not a blocker.
+- **Core methods other plugins patch** (Jan, 2026-10-07): never `alias_method`. Here the
+  settings tab goes through `ProjectsController.helper`, see "Decided by Jan".
+- **deface** (Jan, 2026-10-07): required without a version constraint; this plugin does not use it.
 - **Git**: work on `redmine70-migration` only; never push to the default branch; never force-push
   a branch someone else uses. Descriptive commit messages (what and why). Push after every
   commit, together with the updated status in this file: a cloud session can stop at a usage
@@ -302,8 +340,8 @@ results quoted in the analysis come from it.
 ## Definition of done
 
 - All items of the work list are done or explicitly deferred with a reason, in this file.
-- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL and MariaDB
-  (numbers in this file); boot, production-like eager load, migrations up/down OK.
+- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL, alone and with the
+  other GEOxyz plugins (numbers in this file); boot, production-like eager load, migrations up/down OK.
 - Every function in the inventory exercised end to end on a real running Redmine, with and
   without permissions and on its failure paths; `./.codex/e2e.sh` green; screenshots looked at,
   committed in `docs/e2e/` and listed.
