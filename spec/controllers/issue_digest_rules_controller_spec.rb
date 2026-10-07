@@ -76,9 +76,7 @@ RSpec.describe IssueDigestRulesController, type: :controller do
 
     # Redmine 6+ dropped the icon-* background images: without an SVG sprite
     # inside, the action links render without an icon.
-    it 'draws the action icons as SVG sprites where Redmine has them' do
-      skip 'Redmine 5.1 draws icons with CSS' unless ApplicationController.helpers.respond_to?(:sprite_icon)
-
+    it 'draws the action icons as SVG sprites' do
       create(:issue_digest_rule, project: project, created_by: user, active: true)
       get :index, params: { project_id: project.id }
       doc = Nokogiri::HTML(response.body)
@@ -95,9 +93,7 @@ RSpec.describe IssueDigestRulesController, type: :controller do
       expect(response).to have_http_status(:ok)
     end
 
-    it 'draws the action icons as SVG sprites where Redmine has them' do
-      skip 'Redmine 5.1 draws icons with CSS' unless ApplicationController.helpers.respond_to?(:sprite_icon)
-
+    it 'draws the action icons as SVG sprites' do
       rule = create(:issue_digest_rule, project: project, created_by: user, active: false)
       get :show, params: { project_id: project.id, id: rule.id }
       doc = Nokogiri::HTML(response.body)

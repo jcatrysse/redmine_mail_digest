@@ -1,6 +1,9 @@
 # Changelog
 ## [Unreleased]
 ### Changed (Redmine 7 migration)
+- Requires Redmine 6.0 or later (was 5.1); GEOxyz runs it on Redmine 7.0.
+  The Redmine 5.1 code paths added during the migration are gone, and so is
+  the Redmine 5.1 CI workflow.
 - Digest mails carry `Auto-Submitted: auto-generated` and
   `X-Auto-Response-Suppress: All`, like Redmine's own notifications, so
   out-of-office and vacation responders do not answer them.

@@ -10,7 +10,7 @@ Redmine::Plugin.register :redmine_mail_digest do
   url         'https://github.com/jcatrysse/redmine_mail_digest'
   author_url  'https://github.com/jcatrysse'
 
-  requires_redmine version_or_higher: '5.1.0'
+  requires_redmine version_or_higher: '6.0.0'
 
   settings default: {
              'max_issues_per_email'       => 500,

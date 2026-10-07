@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-# Redmine 6+ translates attribute names (the field_* locale keys used by form
-# labels and error messages) in ApplicationRecord; Redmine 5.1 has no
-# ApplicationRecord and patches ActiveRecord::Base instead.
-class IssueDigestRule < (defined?(ApplicationRecord) ? ApplicationRecord : ActiveRecord::Base)
+# ApplicationRecord: Redmine translates attribute names (the field_* locale
+# keys used by form labels and error messages) there, not in ActiveRecord::Base.
+class IssueDigestRule < ApplicationRecord
   SCHEDULE_TYPES = %w[
     daily
     weekdays

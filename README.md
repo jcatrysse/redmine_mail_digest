@@ -32,7 +32,7 @@ mailer, not Redmine's notification `Mailer`) and triggered by a cron-driven rake
   command line (`DRY_RUN=1`) or via the **"Preview (dry run)"** button on the rule
   page (shows per-recipient issue counts; no emails sent, nothing written)
 - **HTML and plain-text emails** — multipart email consistent with Redmine's style
-- Compatible with **Redmine 5.1**, **6.0**, **6.1** and **7.0**
+- Built for **Redmine 7.0** (requires Redmine 6.0 or later; tested on 7.0)
 
 ---
 
@@ -40,9 +40,9 @@ mailer, not Redmine's notification `Mailer`) and triggered by a cron-driven rake
 
 | Component | Version |
 |-----------|---------|
-| Redmine | 5.1.x, 6.0.x, 6.1.x or 7.0.x |
-| Ruby | ≥ 3.0 (5.1) / ≥ 3.2, < 3.5 (6.1) / ≥ 3.2 (7.0) |
-| Rails | 6.1.x (5.1) / 7.2.x (6.1) / 8.1.x (7.0) |
+| Redmine | 7.0.x (6.0 or later required; 7.0 tested) |
+| Ruby | ≥ 3.2 |
+| Rails | 8.1.x (Redmine 7.0) |
 | Database | PostgreSQL 14+, MySQL 8.0+, or SQLite 3.x |
 
 No additional gems are required beyond those already included in Redmine.
@@ -305,7 +305,6 @@ GitHub Actions workflows are provided:
 - `.github/workflows/rspec-70.yml` — Redmine 7.0 (`7.0-stable-GEOxyz`), Ruby 3.3, PostgreSQL 16
 - `.github/workflows/rspec-61.yml` — Redmine 6.1, Ruby 3.3, PostgreSQL 16
 - `.github/workflows/rspec-60.yml` — Redmine 6.0, PostgreSQL 16
-- `.github/workflows/rspec-51.yml` — Redmine 5.1, Ruby 3.2, PostgreSQL 16
 - `.github/workflows/rspec-mysql.yml` — MySQL 8.0
 
 Trigger them manually from the **Actions** tab.
