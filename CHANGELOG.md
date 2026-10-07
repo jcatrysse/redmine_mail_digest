@@ -19,6 +19,10 @@
 - Switching the **e-mail address lookup** off now also stops mail to the
   addresses already stored on rules (before, it only hid the form field). The
   rule pages mark such addresses "not sent".
+- The Digest Rules settings tab is added through `ProjectsController`'s helper
+  chain instead of an `alias_method` chain on `ProjectsHelper`: with another
+  plugin that prepends onto `ProjectsHelper#project_settings_tabs` and loads
+  first, Project > Settings answered HTTP 500.
 
 ### Fixed
 - New rule form: with Redmine's default time zone unset, the timezone select

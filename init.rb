@@ -40,10 +40,9 @@ Redmine::Plugin.register :redmine_mail_digest do
 end
 
 # Redmine's PluginLoader already runs init.rb from within its own to_prepare
-# callback. Nesting a second to_prepare here would only schedule the patch for
-# the next cycle, which never fires in production (cache_classes = true).
-# Applying the include directly is correct: at this point Rails is fully
-# initialised and Zeitwerk can autoload ProjectsHelper on first reference.
-unless ProjectsHelper.included_modules.include?(IssueDigest::ProjectsHelperPatch)
-  ProjectsHelper.include(IssueDigest::ProjectsHelperPatch)
-end
+# callback, so this runs again after every code reload (controllers and their
+# helper chains are rebuilt then). The settings tab partial needs
+# DigestRulesHelper; both go into ProjectsController's helpers, never into
+# ProjectsHelper itself (see lib/issue_digest/projects_helper_patch.rb).
+ProjectsController.helper(IssueDigest::DigestRulesHelper)
+ProjectsController.helper(IssueDigest::ProjectsHelperPatch)
