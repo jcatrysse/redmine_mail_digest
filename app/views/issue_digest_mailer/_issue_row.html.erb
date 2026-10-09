@@ -5,6 +5,7 @@
   <td><%= issue.status&.name %></td>
   <td class="<%= priority_css_class(issue) %>"><%= issue.priority&.name %></td>
   <td><%= format_assignee(issue) %></td>
+  <td><%= format_start_date(issue) %></td>
   <td class="<%= 'overdue' if overdue?(issue) %>"><%= format_due_date(issue) %></td>
   <td><%= issue.updated_on ? I18n.l(issue.updated_on.to_date) : '' %></td>
 </tr>

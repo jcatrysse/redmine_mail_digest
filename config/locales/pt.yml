@@ -49,6 +49,8 @@ pt:
   field_include_overdue: "Overdue open issues"
   field_include_due_soon: "Open issues due soon"
   field_due_soon_days: "Prazo próximo em (dias)"
+  field_include_starting_soon: "Tarefas abertas com início próximo"
+  field_starting_soon_days: "Início próximo em (dias)"
   field_include_recently_updated: "Incluir tarefas atualizadas recentemente"
   field_recently_updated_days: "Atualizado em (dias)"
   field_include_recently_created: "Incluir tarefas criadas recentemente"
@@ -56,6 +58,7 @@ pt:
   field_filter_assigned_to_recipient: "Apenas atribuídas ao destinatário"
   field_filter_watched_by_recipient: "Apenas seguidas pelo destinatário"
   field_filter_authored_by_recipient: "Apenas criadas pelo destinatário"
+  field_filter_unassigned: "Apenas tarefas não atribuídas"
   field_recipient_modes: "Destinatários"
   field_group_by: "Agrupar tarefas por"
   field_send_empty: "Enviar mesmo que não haja tarefas correspondentes"
@@ -148,6 +151,7 @@ pt:
   label_personalization: "Personalização"
   text_no_active_filters: "Nenhum (todas as tarefas do projeto incluídas)"
   filter_due_soon_summary: "Prazo próximo em %{days} dias"
+  filter_starting_soon_summary: "Início próximo em %{days} dias"
   filter_recently_updated_summary: "Atualizado em %{days} dias"
   filter_recently_created_summary: "Criado em %{days} dias"
   hint_send_time: "Formato de 24 horas, ex. 08:00"
@@ -162,6 +166,7 @@ pt:
   label_filter_group_match: "Incluir tarefas que correspondam a qualquer uma destas"
   label_filter_group_narrow: "Depois restringir as tarefas encontradas"
   hint_personalization: "Estas restringem a lista de cada destinatário às suas próprias tarefas. Aplicam-se além dos modos de destinatários; os modos Atribuídas / Autores / Seguidores já se restringem por si, por isso são necessárias sobretudo com modos amplos como 'Todos os membros do projeto'."
+  hint_filter_unassigned: "Mantém apenas as tarefas sem atribuição. Uma tarefa atribuída a um grupo conta como atribuída. Não pode ser combinada com o modo de destinatários 'Utilizadores atribuídos' nem com 'Apenas atribuídas ao destinatário'."
   hint_timezone: "Fuso horário para interpretar o horário de envio e as janelas de tempo. Por padrão, o fuso horário global do Redmine."
   warning_query_missing: "Aviso: a consulta salva #%{id} não existe mais. O filtro de consulta será ignorado até que a regra seja atualizada."
   warning_query_missing_short: "Consulta #%{id} eliminada"
@@ -214,6 +219,7 @@ pt:
       column_status: "Estado"
       column_priority: "Prioridade"
       column_assignee: "Atribuído"
+      column_start_date: "Data de início"
       column_due_date: "Data de vencimento"
       column_updated: "Atualizado"
       unassigned: "Não atribuído"
@@ -225,3 +231,7 @@ pt:
       footer_member_notice: "Recebeu este resumo porque é membro de %{project}."
       footer_manage_link: "Gerir definições de resumo"
       footer_generated_by: "Este resumo foi gerado pelo Redmine."
+  activerecord:
+    errors:
+      messages:
+        filter_unassigned_conflict: "não pode ser combinado com o modo de destinatários 'Utilizadores atribuídos' nem com 'Apenas atribuídas ao destinatário'"

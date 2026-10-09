@@ -60,6 +60,10 @@ class IssueDigestMailer < ActionMailer::Base
       issue.due_date ? I18n.l(issue.due_date) : '—'
     end
 
+    def format_start_date(issue)
+      issue.start_date ? I18n.l(issue.start_date) : '—'
+    end
+
     def overdue?(issue)
       issue.due_date.present? && issue.due_date < Date.current
     end

@@ -49,6 +49,8 @@ es:
   field_include_overdue: "Overdue open issues"
   field_include_due_soon: "Open issues due soon"
   field_due_soon_days: "Próximas a vencer en (días)"
+  field_include_starting_soon: "Incidencias abiertas próximas a comenzar"
+  field_starting_soon_days: "Próximas a comenzar en (días)"
   field_include_recently_updated: "Incluir incidencias actualizadas recientemente"
   field_recently_updated_days: "Actualizado en (días)"
   field_include_recently_created: "Incluir incidencias creadas recientemente"
@@ -56,6 +58,7 @@ es:
   field_filter_assigned_to_recipient: "Solo asignadas al destinatario"
   field_filter_watched_by_recipient: "Solo seguidas por el destinatario"
   field_filter_authored_by_recipient: "Solo creadas por el destinatario"
+  field_filter_unassigned: "Solo incidencias sin asignar"
   field_recipient_modes: "Destinatarios"
   field_group_by: "Agrupar incidencias por"
   field_send_empty: "Enviar aunque no coincidan incidencias"
@@ -148,6 +151,7 @@ es:
   label_personalization: "Personalización"
   text_no_active_filters: "Ninguno (todas las incidencias del proyecto incluidas)"
   filter_due_soon_summary: "Próxima a vencer en %{days} días"
+  filter_starting_soon_summary: "Próxima a comenzar en %{days} días"
   filter_recently_updated_summary: "Actualizado en %{days} días"
   filter_recently_created_summary: "Creado en %{days} días"
   hint_send_time: "Formato 24 horas, p. ej. 08:00"
@@ -162,6 +166,7 @@ es:
   label_filter_group_match: "Incluir incidencias que coincidan con cualquiera de estas"
   label_filter_group_narrow: "Luego acotar las incidencias encontradas"
   hint_personalization: "Estas acotan la lista de cada destinatario a sus propias incidencias. Se aplican además de los modos de destinatarios; los modos Asignados / Autores / Seguidores ya se acotan por sí mismos, por lo que las necesitará sobre todo con modos amplios como 'Todos los miembros del proyecto'."
+  hint_filter_unassigned: "Conserva solo las incidencias sin asignar. Una incidencia asignada a un grupo cuenta como asignada. No se puede combinar con el modo de destinatario 'Usuarios asignados' ni con 'Solo asignadas al destinatario'."
   hint_timezone: "Zona horaria para interpretar la hora de envío y las ventanas de tiempo. Por defecto, la zona horaria global de Redmine."
   warning_query_missing: "Advertencia: la consulta guardada #%{id} ya no existe. El filtro de consulta se omitirá hasta que se actualice la regla."
   warning_query_missing_short: "Consulta #%{id} eliminada"
@@ -214,6 +219,7 @@ es:
       column_status: "Estado"
       column_priority: "Prioridad"
       column_assignee: "Asignado"
+      column_start_date: "Fecha de inicio"
       column_due_date: "Fecha de vencimiento"
       column_updated: "Actualizado"
       unassigned: "Sin asignar"
@@ -225,3 +231,7 @@ es:
       footer_member_notice: "Recibió este resumen porque es miembro de %{project}."
       footer_manage_link: "Gestionar ajustes del resumen"
       footer_generated_by: "Este resumen fue generado por Redmine."
+  activerecord:
+    errors:
+      messages:
+        filter_unassigned_conflict: "no se puede combinar con el modo de destinatario 'Usuarios asignados' ni con 'Solo asignadas al destinatario'"

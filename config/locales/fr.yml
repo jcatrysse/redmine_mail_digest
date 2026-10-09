@@ -49,6 +49,8 @@ fr:
   field_include_overdue: "Overdue open issues"
   field_include_due_soon: "Open issues due soon"
   field_due_soon_days: "Bientôt due dans (jours)"
+  field_include_starting_soon: "Issues ouvertes qui commencent bientôt"
+  field_starting_soon_days: "Commence bientôt dans (jours)"
   field_include_recently_updated: "Inclure les issues récemment mises à jour"
   field_recently_updated_days: "Mis à jour dans (jours)"
   field_include_recently_created: "Inclure les issues récemment créées"
@@ -56,6 +58,7 @@ fr:
   field_filter_assigned_to_recipient: "Uniquement assigné au destinataire"
   field_filter_watched_by_recipient: "Uniquement suivi par le destinataire"
   field_filter_authored_by_recipient: "Uniquement créé par le destinataire"
+  field_filter_unassigned: "Uniquement les issues non assignées"
   field_recipient_modes: "Destinataires"
   field_group_by: "Regrouper les issues par"
   field_send_empty: "Envoyer même si aucune issue ne correspond"
@@ -148,6 +151,7 @@ fr:
   label_personalization: "Personnalisation"
   text_no_active_filters: "Aucun (toutes les issues du projet incluses)"
   filter_due_soon_summary: "Due dans %{days} jours"
+  filter_starting_soon_summary: "Commence dans %{days} jours"
   filter_recently_updated_summary: "Mis à jour dans %{days} jours"
   filter_recently_created_summary: "Créé dans %{days} jours"
   hint_send_time: "Format 24 heures, ex. 08:00"
@@ -162,6 +166,7 @@ fr:
   label_filter_group_match: "Inclure les issues correspondant à l'une de ces options"
   label_filter_group_narrow: "Puis restreindre les issues trouvées"
   hint_personalization: "Ces options restreignent la liste de chaque destinataire à ses propres issues. Elles s'appliquent en plus des modes de destinataires ; les modes Assignés / Auteurs / Observateurs restreignent déjà d'eux-mêmes, vous en avez donc surtout besoin avec des modes larges comme « Tous les membres du projet »."
+  hint_filter_unassigned: "Ne garde que les issues sans assigné. Une issue assignée à un groupe compte comme assignée. Incompatible avec le mode de destinataires « Utilisateurs assignés » ou « Uniquement assigné au destinataire »."
   hint_timezone: "Fuseau horaire pour interpréter l'heure d'envoi et les fenêtres temporelles. Par défaut, le fuseau horaire global de Redmine."
   warning_query_missing: "Avertissement : la requête sauvegardée #%{id} n'existe plus. Le filtre de requête sera ignoré tant que la règle n'est pas mise à jour."
   warning_query_missing_short: "Requête #%{id} supprimée"
@@ -214,6 +219,7 @@ fr:
       column_status: "Statut"
       column_priority: "Priorité"
       column_assignee: "Assigné"
+      column_start_date: "Date de début"
       column_due_date: "Date d'échéance"
       column_updated: "Mis à jour"
       unassigned: "Non assigné"
@@ -225,3 +231,7 @@ fr:
       footer_member_notice: "Vous avez reçu ce digest parce que vous êtes membre de %{project}."
       footer_manage_link: "Gérer les paramètres du digest"
       footer_generated_by: "Ce digest a été généré par Redmine."
+  activerecord:
+    errors:
+      messages:
+        filter_unassigned_conflict: "ne peut pas être combiné avec le mode de destinataires « Utilisateurs assignés » ou « Uniquement assigné au destinataire »"

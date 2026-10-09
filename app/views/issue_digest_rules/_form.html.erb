@@ -196,6 +196,10 @@
       <%= f.number_field :due_soon_days, min: 1, max: 365, no_label: true %>
     </p>
     <p>
+      <%= f.check_box :include_starting_soon %>
+      <%= f.number_field :starting_soon_days, min: 1, max: 365, no_label: true %>
+    </p>
+    <p>
       <%= f.check_box :include_recently_updated %>
       <%= f.number_field :recently_updated_days, min: 1, max: 365, no_label: true %>
     </p>
@@ -299,6 +303,10 @@
     <p>
       <%= f.check_box :filter_authored_by_recipient %>
     </p>
+    <p>
+      <%= f.check_box :filter_unassigned %>
+      <em class="info"><%= l(:hint_filter_unassigned) %></em>
+    </p>
     <p class="description"><%= l(:hint_personalization) %></p>
   </fieldset>
 
@@ -393,6 +401,7 @@
     [
       ['issue_digest_rule_include_overdue',          'issue_digest_rule_overdue_min_days'],
       ['issue_digest_rule_include_due_soon',         'issue_digest_rule_due_soon_days'],
+      ['issue_digest_rule_include_starting_soon',    'issue_digest_rule_starting_soon_days'],
       ['issue_digest_rule_include_recently_updated', 'issue_digest_rule_recently_updated_days'],
       ['issue_digest_rule_include_recently_created', 'issue_digest_rule_recently_created_days']
     ].forEach(function(pair) {

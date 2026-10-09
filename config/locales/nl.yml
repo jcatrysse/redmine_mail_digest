@@ -51,6 +51,8 @@ nl:
   placeholder_overdue_min_days: "alle"
   field_include_due_soon: "Open issues die binnenkort verlopen"
   field_due_soon_days: "Binnenkort verlopen binnen (dagen)"
+  field_include_starting_soon: "Open issues die binnenkort starten"
+  field_starting_soon_days: "Binnenkort starten binnen (dagen)"
   field_include_recently_updated: "Recent bijgewerkte issues opnemen"
   field_recently_updated_days: "Bijgewerkt binnen (dagen)"
   field_include_recently_created: "Recent aangemaakte issues opnemen"
@@ -58,6 +60,7 @@ nl:
   field_filter_assigned_to_recipient: "Alleen toegewezen aan ontvanger"
   field_filter_watched_by_recipient: "Alleen gevolgd door ontvanger"
   field_filter_authored_by_recipient: "Alleen gemaakt door ontvanger"
+  field_filter_unassigned: "Alleen niet-toegewezen issues"
   field_recipient_modes: "Ontvangers"
   field_group_by: "Issues groeperen op"
   field_send_empty: "Verzenden ook als er geen issues overeenkomen"
@@ -150,6 +153,7 @@ nl:
   label_personalization: "Personalisatie"
   text_no_active_filters: "Geen (alle projectissues opgenomen)"
   filter_due_soon_summary: "Binnenkort verlopen binnen %{days} dagen"
+  filter_starting_soon_summary: "Binnenkort starten binnen %{days} dagen"
   filter_recently_updated_summary: "Bijgewerkt binnen %{days} dagen"
   filter_recently_created_summary: "Aangemaakt binnen %{days} dagen"
   hint_send_time: "24-uursnotatie, bijv. 08:00"
@@ -164,6 +168,7 @@ nl:
   label_filter_group_match: "Issues opnemen die aan een van deze voorwaarden voldoen"
   label_filter_group_narrow: "Beperk daarna de gevonden issues"
   hint_personalization: "Deze beperken de lijst van elke ontvanger tot hun eigen issues. Ze werken bovenop de ontvangersmodi; de modi Toegewezen/Auteurs/Volgers beperken al vanzelf, dus u hebt deze vooral nodig bij brede modi zoals 'Alle projectleden'."
+  hint_filter_unassigned: "Houdt alleen issues zonder toegewezen persoon over. Een issue dat aan een groep is toegewezen, telt als toegewezen. Niet te combineren met de ontvangersmodus 'Toegewezen gebruikers' of 'Alleen toegewezen aan ontvanger'."
   hint_timezone: "Tijdzone voor het interpreteren van de verzendtijd en tijdvensters. Standaard de globale Redmine-tijdzone."
   warning_query_missing: "Waarschuwing: opgeslagen query #%{id} bestaat niet meer. Het queryfilter wordt overgeslagen totdat de regel is bijgewerkt."
   warning_query_missing_short: "Query #%{id} verwijderd"
@@ -214,6 +219,7 @@ nl:
       column_status: "Status"
       column_priority: "Prioriteit"
       column_assignee: "Toegewezene"
+      column_start_date: "Startdatum"
       column_due_date: "Vervaldatum"
       column_updated: "Bijgewerkt"
       unassigned: "Niet toegewezen"
@@ -225,3 +231,7 @@ nl:
       footer_member_notice: "U ontving deze digest omdat u lid bent van %{project}."
       footer_manage_link: "Digestinstellingen beheren"
       footer_generated_by: "Deze digest is gegenereerd door Redmine."
+  activerecord:
+    errors:
+      messages:
+        filter_unassigned_conflict: "kan niet gecombineerd worden met de ontvangersmodus 'Toegewezen gebruikers' of 'Alleen toegewezen aan ontvanger'"

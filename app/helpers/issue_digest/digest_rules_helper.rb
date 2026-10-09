@@ -227,6 +227,7 @@ module IssueDigest
         parts << (min_days ? l(:filter_overdue_since_summary, days: min_days) : l(:field_include_overdue))
       end
       parts << l(:filter_due_soon_summary, days: rule.due_soon_days)                  if rule.include_due_soon?
+      parts << l(:filter_starting_soon_summary, days: rule.starting_soon_days)        if rule.include_starting_soon?
       parts << l(:filter_recently_updated_summary, days: rule.recently_updated_days)  if rule.include_recently_updated?
       parts << l(:filter_recently_created_summary, days: rule.recently_created_days)  if rule.include_recently_created?
       parts << l(:field_include_subprojects)                                           if rule.include_subprojects?
@@ -240,6 +241,7 @@ module IssueDigest
       parts << l(:field_filter_assigned_to_recipient) if rule.filter_assigned_to_recipient?
       parts << l(:field_filter_watched_by_recipient)  if rule.filter_watched_by_recipient?
       parts << l(:field_filter_authored_by_recipient) if rule.filter_authored_by_recipient?
+      parts << l(:field_filter_unassigned)            if rule.filter_unassigned?
       parts.empty? ? nil : parts.join(', ')
     end
 

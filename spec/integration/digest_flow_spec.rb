@@ -162,6 +162,38 @@ RSpec.describe 'Digest pipeline integration', type: :request do
     end
   end
 
+  describe 'starting soon + only unassigned, mailed to one specific user' do
+    it 'mails that user only the unassigned open issues starting in the window, with their start date' do
+      add_member(alice)
+      add_member(bob)
+
+      wanted   = make_issue(subject: 'Unassigned starts soon', start_date: Date.current + 3)
+      make_issue(subject: 'Assigned starts soon', start_date: Date.current + 3, assigned_to: bob)
+      make_issue(subject: 'Unassigned starts late', start_date: Date.current + 30)
+      make_issue(subject: 'Unassigned no start')
+
+      rule = create(:issue_digest_rule,
+                    project: project,
+                    include_open: false,
+                    include_starting_soon: true, starting_soon_days: 7,
+                    filter_unassigned: true,
+                    recipient_modes: ["user:#{alice.id}"])
+
+      ActionMailer::Base.deliveries.clear
+      result = IssueDigest::DigestSender.new(rule, dry_run: false, trigger: :manual).send
+
+      expect(result.status).to eq('success')
+      expect(ActionMailer::Base.deliveries.size).to eq(1)
+      mail = ActionMailer::Base.deliveries.first
+      expect(mail.to).to eq([alice.mail])
+      html = mail.html_part.body.to_s
+      expect(html).to include('Unassigned starts soon', I18n.l(wanted.start_date))
+      expect(html).not_to include('Assigned starts soon')
+      expect(html).not_to include('Unassigned starts late')
+      expect(html).not_to include('Unassigned no start')
+    end
+  end
+
   describe 'visibility: private project excludes non-members' do
     it 'does not include a non-member as recipient' do
       private_project = create(:project, is_public: false)

@@ -1,6 +1,20 @@
 # Changelog
 ## [Unreleased]
 ### Added
+- **Open issues starting soon**: new "Include" option with its own day count
+  (1-365, default 7). Adds open issues whose start date is between today and
+  today + N days, OR-combined with the other "Include" options, same date rules
+  as "Open issues due soon".
+- **Only unassigned issues**: new narrowing option, AND-combined, keeps only
+  issues with no assignee (an issue assigned to a group is not unassigned, as
+  in Redmine's "Assignee: none" filter). Refused together with the "Assigned
+  users" recipient mode or "Only assigned to recipient" (always empty).
+  Typical use: recipient "specific user" + "starting soon" + "only unassigned".
+- The digest mail (HTML and text) shows the **start date** of every issue, for
+  every rule, next to the due date.
+- Migration 011 adds `include_starting_soon`, `starting_soon_days` and
+  `filter_unassigned` with defaults that keep existing rules unchanged; run
+  `rake redmine:plugins:migrate` after upgrading. The migration is reversible.
 - **In-UI dry-run preview** — the digest rule page now has a "Preview (dry run)"
   button that runs the real send path in dry-run mode (no emails, no records
   written) and shows, per recipient, what *would* happen (would send N issues /

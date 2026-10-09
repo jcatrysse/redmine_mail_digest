@@ -139,6 +139,7 @@ class IssueDigestRulesController < ApplicationController
       include_open: true,
       group_by: 'none',
       due_soon_days: 7,
+      starting_soon_days: 7,
       recently_updated_days: 7,
       recently_created_days: 7
     }
@@ -166,11 +167,12 @@ class IssueDigestRulesController < ApplicationController
       :query_id, :include_subprojects,
       :include_open, :include_closed, :include_overdue,
       :include_due_soon, :due_soon_days,
+      :include_starting_soon, :starting_soon_days,
       :include_recently_updated, :recently_updated_days,
       :include_recently_created, :recently_created_days,
       :since_last_run_created, :since_last_run_updated,
       :filter_assigned_to_recipient, :filter_watched_by_recipient,
-      :filter_authored_by_recipient,
+      :filter_authored_by_recipient, :filter_unassigned,
       :overdue_min_days,
       :group_by, :send_empty,
       :email_subject, :email_intro,

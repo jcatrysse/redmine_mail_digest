@@ -49,6 +49,8 @@ de:
   field_include_overdue: "Overdue open issues"
   field_include_due_soon: "Open issues due soon"
   field_due_soon_days: "Bald fällig innerhalb von (Tagen)"
+  field_include_starting_soon: "Offene Issues mit baldigem Startdatum"
+  field_starting_soon_days: "Startdatum innerhalb von (Tagen)"
   field_include_recently_updated: "Kürzlich aktualisierte Issues einbeziehen"
   field_recently_updated_days: "Aktualisiert innerhalb von (Tagen)"
   field_include_recently_created: "Kürzlich erstellte Issues einbeziehen"
@@ -56,6 +58,7 @@ de:
   field_filter_assigned_to_recipient: "Nur dem Empfänger zugewiesen"
   field_filter_watched_by_recipient: "Nur vom Empfänger beobachtet"
   field_filter_authored_by_recipient: "Nur vom Empfänger erstellt"
+  field_filter_unassigned: "Nur nicht zugewiesene Issues"
   field_recipient_modes: "Empfänger"
   field_group_by: "Issues gruppieren nach"
   field_send_empty: "Senden, auch wenn keine Issues übereinstimmen"
@@ -148,6 +151,7 @@ de:
   label_personalization: "Personalisierung"
   text_no_active_filters: "Keine (alle Projekt-Issues einbezogen)"
   filter_due_soon_summary: "Bald fällig innerhalb von %{days} Tagen"
+  filter_starting_soon_summary: "Startdatum innerhalb von %{days} Tagen"
   filter_recently_updated_summary: "Aktualisiert innerhalb von %{days} Tagen"
   filter_recently_created_summary: "Erstellt innerhalb von %{days} Tagen"
   hint_send_time: "24-Stunden-Format, z. B. 08:00"
@@ -162,6 +166,7 @@ de:
   label_filter_group_match: "Issues einbeziehen, die einer dieser Bedingungen entsprechen"
   label_filter_group_narrow: "Anschließend die gefundenen Issues einschränken"
   hint_personalization: "Diese schränken die Liste jedes Empfängers auf seine eigenen Issues ein. Sie wirken zusätzlich zu den Empfängermodi; die Modi Zugewiesene/Autoren/Beobachter schränken bereits selbst ein, daher werden diese vor allem bei breiten Modi wie 'Alle Projektmitglieder' benötigt."
+  hint_filter_unassigned: "Behält nur Issues ohne Zuweisung. Ein einer Gruppe zugewiesenes Issue gilt als zugewiesen. Nicht kombinierbar mit dem Empfängermodus 'Zugewiesene Benutzer' oder 'Nur dem Empfänger zugewiesen'."
   hint_timezone: "Zeitzone zur Interpretation der Sendezeit und Zeitfenster. Standardmäßig wird die globale Redmine-Zeitzone verwendet."
   warning_query_missing: "Warnung: Die gespeicherte Abfrage #%{id} existiert nicht mehr. Der Abfragefilter wird übersprungen, bis die Regel aktualisiert wird."
   warning_query_missing_short: "Abfrage #%{id} gelöscht"
@@ -214,6 +219,7 @@ de:
       column_status: "Status"
       column_priority: "Priorität"
       column_assignee: "Zugewiesen"
+      column_start_date: "Startdatum"
       column_due_date: "Fälligkeitsdatum"
       column_updated: "Aktualisiert"
       unassigned: "Nicht zugewiesen"
@@ -225,3 +231,7 @@ de:
       footer_member_notice: "Sie haben diesen Digest erhalten, weil Sie Mitglied von %{project} sind."
       footer_manage_link: "Digest-Einstellungen verwalten"
       footer_generated_by: "Dieser Digest wurde von Redmine generiert."
+  activerecord:
+    errors:
+      messages:
+        filter_unassigned_conflict: "kann nicht mit dem Empfängermodus 'Zugewiesene Benutzer' oder 'Nur dem Empfänger zugewiesen' kombiniert werden"

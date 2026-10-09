@@ -49,6 +49,8 @@ ru:
   field_include_overdue: "Overdue open issues"
   field_include_due_soon: "Open issues due soon"
   field_due_soon_days: "Ближайший срок в течение (дней)"
+  field_include_starting_soon: "Открытые задачи с близкой датой начала"
+  field_starting_soon_days: "Дата начала в течение (дней)"
   field_include_recently_updated: "Включить недавно обновлённые задачи"
   field_recently_updated_days: "Обновлено в течение (дней)"
   field_include_recently_created: "Включить недавно созданные задачи"
@@ -56,6 +58,7 @@ ru:
   field_filter_assigned_to_recipient: "Только назначенные получателю"
   field_filter_watched_by_recipient: "Только отслеживаемые получателем"
   field_filter_authored_by_recipient: "Только созданные получателем"
+  field_filter_unassigned: "Только неназначенные задачи"
   field_recipient_modes: "Получатели"
   field_group_by: "Группировать задачи по"
   field_send_empty: "Отправлять, даже если задачи не найдены"
@@ -148,6 +151,7 @@ ru:
   label_personalization: "Персонализация"
   text_no_active_filters: "Отсутствуют (включены все задачи проекта)"
   filter_due_soon_summary: "Срок в течение %{days} дней"
+  filter_starting_soon_summary: "Начало в течение %{days} дней"
   filter_recently_updated_summary: "Обновлено в течение %{days} дней"
   filter_recently_created_summary: "Создано в течение %{days} дней"
   hint_send_time: "24-часовой формат, например 08:00"
@@ -162,6 +166,7 @@ ru:
   label_filter_group_match: "Включать задачи, соответствующие любому из этих условий"
   label_filter_group_narrow: "Затем сузить найденные задачи"
   hint_personalization: "Эти параметры сужают список каждого получателя до его собственных задач. Они применяются дополнительно к режимам получателей; режимы «Назначенные» / «Авторы» / «Наблюдатели» уже сужают сами по себе, поэтому эти параметры нужны в основном при широких режимах, например «Все участники проекта»."
+  hint_filter_unassigned: "Оставляет только задачи без исполнителя. Задача, назначенная группе, считается назначенной. Нельзя сочетать с режимом получателей «Назначенные пользователи» или «Только назначенные получателю»."
   hint_timezone: "Часовой пояс для интерпретации времени отправки и временных окон. По умолчанию используется глобальный часовой пояс Redmine."
   warning_query_missing: "Внимание: сохранённый запрос #%{id} больше не существует. Фильтр запроса будет пропущен до обновления правила."
   warning_query_missing_short: "Запрос #%{id} удалён"
@@ -214,6 +219,7 @@ ru:
       column_status: "Статус"
       column_priority: "Приоритет"
       column_assignee: "Исполнитель"
+      column_start_date: "Дата начала"
       column_due_date: "Срок"
       column_updated: "Обновлено"
       unassigned: "Не назначено"
@@ -225,3 +231,7 @@ ru:
       footer_member_notice: "Вы получили этот дайджест, поскольку являетесь участником %{project}."
       footer_manage_link: "Управление настройками дайджеста"
       footer_generated_by: "Этот дайджест был сгенерирован Redmine."
+  activerecord:
+    errors:
+      messages:
+        filter_unassigned_conflict: "нельзя сочетать с режимом получателей «Назначенные пользователи» или «Только назначенные получателю»"

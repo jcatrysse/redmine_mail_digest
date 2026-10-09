@@ -16,8 +16,9 @@ rake task.
   and manual (rake-only)
 - **Flexible recipients** — all project members, members by role, assignees, authors,
   watchers, or specific users
-- **Issue filters** — open, closed, overdue, due soon, recently updated, recently
-  created, or based on an existing saved Redmine query
+- **Issue filters** — open, closed, overdue, due soon, starting soon, recently
+  updated, recently created, or based on an existing saved Redmine query; a rule
+  can be limited to unassigned issues
 - **Per-recipient personalization** — each recipient sees only the issues they are
   permitted to view; private issues are excluded automatically
 - **Grace window** — configurable tolerance for late cron runs; missed windows are
@@ -113,7 +114,15 @@ Assign roles in **Administration → Roles and Permissions → Issue Digest**:
    - **Schedule** — choose a schedule type and configure its options
    - **Send time** and **Timezone**
    - **Grace window** — how late the cron can be and still send (default: 24 hours)
-   - **Issue filters** — which issues to include
+   - **Issue filters** — which issues to include. "Open issues starting soon"
+     adds open issues whose start date lies between today and today + N days
+     (default 7), like "Open issues due soon" does for the due date.
+   - **Only unassigned issues** (under Personalization) keeps only issues
+     without an assignee; an issue assigned to a group counts as assigned, as in
+     Redmine's own "Assignee: none" filter. Combine it with a specific user as
+     recipient to mail one person the unassigned work. It cannot be combined
+     with the "Assigned users" recipient mode or "Only assigned to recipient",
+     which would always give an empty digest.
    - **Recipients** — who receives the email
 5. Save. The rule is active and will be sent on the next matching cron run.
 
