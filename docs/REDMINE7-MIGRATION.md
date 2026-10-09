@@ -26,6 +26,35 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Migration session | done 2026-10-06; work list complete; Jan's decisions on the open questions built the same day |
 | Branch head | see `git log`; this file updated with the last commit |
 
+## Feature 2026-10-09: "Open issues starting soon" and "Only unassigned issues"
+
+Requested by Jan on 2026-10-09, built on this branch (`34fc40c`, e2e `3070e0a`) and cherry-picked
+to `main` (see below). Jan's decisions: dedicated rule options (not the saved-query route);
+"unassigned" is `assigned_to_id IS NULL` (an issue assigned to a group is assigned, as in
+Redmine's "Assignee: none"); the mail shows a Start date column for every rule.
+
+Choices made in this session (Jan was not watching), with the reason:
+- "Only unassigned issues" sits under Personalization next to the `filter_*_recipient` flags,
+  as asked, with its own hint, because its neighbours' hint ("their own issues") does not fit it.
+  It narrows the candidate scope too, so the authors/watchers modes stay consistent with it.
+- The refusal is a model validation on `filter_unassigned` with an `activerecord.errors.messages`
+  code, like the other own error codes on this branch, so it reaches the form and every locale.
+- Date semantics follow `due_soon_condition` exactly (`Date.current`, both ends inclusive).
+- The text part gets "Start: <date>" before "Due:", labels hard-coded like the existing ones.
+- Migration 011 (`include_starting_soon`, `starting_soon_days`, `filter_unassigned`), with
+  defaults that keep every existing rule unchanged.
+
+| Check | Result |
+|---|---|
+| rspec, Redmine 7.0-stable-GEOxyz, PostgreSQL 16 | 571 examples, 0 failures (533 before + 38 new); without the change 20 of the new examples fail, the others guard defaults, "ignored when off" and the migration |
+| migration 011 down and up | spec `spec/migrations/add_starting_soon_and_unassigned_spec.rb`; on the e2e database `redmine:plugins:migrate` ran 011 |
+| e2e, production mode | 9 scripts (smoke, core, 7 plugin scenarios), 68 screenshots, 0 problems; new scenario `test/e2e/starting_soon_unassigned.mjs`, 8 screenshots looked at, in `docs/e2e/starting-soon-unassigned*` |
+| rubocop on the changed files | 3 offenses before and after, all pre-existing |
+| OpenAI review (`gpt-5`) of `bc766ca..3070e0a` | no findings (`docs/reviews/openai-2026-10-09-3070e0a.md`) |
+
+Not updated: the design documents under `docs/spec/` (data model, UI spec) still describe the
+rule without the two options.
+
 ## Result (2026-10-07, head `b5de1c5` and later)
 
 | Check | PostgreSQL 16, Redmine 7.0-stable-GEOxyz |
@@ -101,6 +130,7 @@ Browser baseline (production mode, PostgreSQL): smoke 15 screenshots, core 6, 0 
 | Recipient modes: assignees, role, specific user, e-mail addresses (and the lookup switched off) | rule form, Recipients | `recipients.mjs` | `recipients-form-assignees`, `-form-role-user`, `-form-emails`, `-show-emails`, `-show-emails-off`; output in `recipients-commands.md` |
 | Sending: `rake redmine:issue_digest:send` dry run, manual, scheduled (cron), idempotent window, disabled rule, issue cap; mail content, headers, per-recipient visibility | cron / operator | `digest_send.mjs` | `digest-send-mail-manager`, `-mail-reporter` (private issue absent), `-mail-capped`, `-run-history`; commands and output in `digest-send-commands.md` |
 | Cleanup: `rake redmine:issue_digest:cleanup` | cron | `digest_send.mjs` | `digest-send-commands.md` (one run of 200 days deleted, 3 -> 2) |
+| Include "Open issues starting soon", narrow to "Only unassigned issues" (2026-10-09); Start date column in every mail | rule form, Filters and Personalization | `starting_soon_unassigned.mjs` | `starting-soon-unassigned-form`, `-form-recipient`, `-show-preview`, `-mail`, `-refused-assignees`, `-refused-assigned-to-recipient`, `-form-nl`, `-reporter-refused`; commands in `starting-soon-unassigned-commands.md` |
 | Webhooks (Redmine 7) | - | not applicable, see work list 5 | - |
 
 ## Work list for the migration session
@@ -204,8 +234,10 @@ Actions the person doing the upgrade must take, or know about, for this plugin:
 - Re-create the cron entries `redmine:issue_digest:send` and `:cleanup`
   (`cd <redmine> && RAILS_ENV=production bundle exec rake redmine:issue_digest:send`, every
   5-15 minutes; `:cleanup` daily).
-- No migration is new on this branch (still 001-010); `rake redmine:plugins:migrate` is a no-op
-  for this plugin when production already runs `main`.
+- Migration 011 (2026-10-09 feature: starting soon, only unassigned) is new; it is also on
+  `main`. Run `RAILS_ENV=production bundle exec rake redmine:plugins:migrate` once; existing
+  rules keep their behaviour (defaults off, 7 days). Rollback:
+  `rake redmine:plugins:migrate NAME=redmine_mail_digest VERSION=10`.
 - Behaviour that changes for users: a "Digest Rules" entry in the project menu for roles with
   *view digest rules*; roles with *manage digest rules* can open the project settings (only the
   tabs their permissions allow); rules with e-mail address recipients stop mailing those
