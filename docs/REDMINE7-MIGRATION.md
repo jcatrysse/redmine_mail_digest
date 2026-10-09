@@ -52,6 +52,11 @@ Choices made in this session (Jan was not watching), with the reason:
 | rubocop on the changed files | 3 offenses before and after, all pre-existing |
 | OpenAI review (`gpt-5`) of `bc766ca..3070e0a` | no findings (`docs/reviews/openai-2026-10-09-3070e0a.md`) |
 
+| `main` (Redmine 5.1) | cherry-pick of `34fc40c` as `9a2b4d2` on `e734469` (fast-forward). Conflicts: the locales (no `activerecord.errors` section on `main`: only the new message added there) and `spec/models/issue_digest_rule_error_messages_spec.rb` (not on `main`: replaced by a per-locale check of the new message in `issue_digest_rule_spec.rb`). The e2e commit stays on this branch, it needs the `.codex/e2e` tooling |
+| rspec, Redmine 5.1-stable, Ruby 3.2.6, PostgreSQL 16 | 478 examples, 0 failures (440 before + 38 new); without the change 31 fail |
+| e2e on Redmine 5.1 running `main` + the feature | the same scenario: 8 screenshots, 0 problems, looked at, in `docs/e2e/redmine51/starting-soon-unassigned*` |
+| push of `main` | **not done**: refused by the session's permission check; `9a2b4d2` exists only in the session container. Needs Jan's go, or redo the cherry-pick as described above |
+
 Not updated: the design documents under `docs/spec/` (data model, UI spec) still describe the
 rule without the two options.
 
