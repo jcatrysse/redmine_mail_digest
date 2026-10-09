@@ -101,6 +101,94 @@ RSpec.describe IssueDigest::IssueResolver, type: :service do
       expect(result.map(&:id)).not_to include(due_far.id)
     end
 
+    context 'include_starting_soon' do
+      let(:today) { Date.current }
+      let(:starting_rule) do
+        create(:issue_digest_rule, project: project, include_open: false,
+               include_starting_soon: true, starting_soon_days: 7)
+      end
+
+      it 'includes open issues starting today and on day X, not on day X+1, not without start date' do
+        starts_today  = make_issue(start_date: today)
+        starts_day_x  = make_issue(start_date: today + 7)
+        starts_late   = make_issue(start_date: today + 8)
+        started       = make_issue(start_date: today - 1)
+        no_start      = make_issue(start_date: nil)
+        ids = described_class.new(starting_rule, user: user).resolve.map(&:id)
+        expect(ids).to match_array([starts_today.id, starts_day_x.id])
+        expect(ids).not_to include(starts_late.id, started.id, no_start.id)
+      end
+
+      it 'excludes closed issues starting in the window' do
+        closed = make_issue(start_date: today + 2, status: closed_st)
+        open   = make_issue(start_date: today + 2)
+        ids = described_class.new(starting_rule, user: user).resolve.map(&:id)
+        expect(ids).to eq([open.id])
+        expect(ids).not_to include(closed.id)
+      end
+
+      it 'is OR-combined with the other include options' do
+        starting = make_issue(start_date: today + 3)
+        due_soon = make_issue(due_date: today + 2)
+        neither  = make_issue(start_date: today + 30)
+        r = create(:issue_digest_rule, project: project, include_open: false,
+                   include_starting_soon: true, starting_soon_days: 7,
+                   include_due_soon: true, due_soon_days: 7)
+        ids = described_class.new(r, user: user).resolve.map(&:id)
+        expect(ids).to match_array([starting.id, due_soon.id])
+        expect(ids).not_to include(neither.id)
+      end
+
+      it 'is ignored when unchecked' do
+        far = make_issue(start_date: today + 30)
+        r = create(:issue_digest_rule, project: project, include_open: true,
+                   include_starting_soon: false, starting_soon_days: 7)
+        expect(described_class.new(r, user: user).resolve.map(&:id)).to include(far.id)
+      end
+    end
+
+    context 'filter_unassigned' do
+      let(:other_user) { create(:user, admin: true) }
+
+      it 'keeps only issues without an assignee; group and user assignments are excluded' do
+        group = Group.create!(lastname: "Group #{SecureRandom.hex(4)}")
+        unassigned   = make_issue
+        to_user      = make_issue(assigned_to: user)
+        to_group     = make_issue
+        to_group.reload.update_column(:assigned_to_id, group.id)
+        r = create(:issue_digest_rule, project: project, include_open: true, filter_unassigned: true)
+        ids = described_class.new(r, user: user).resolve.map(&:id)
+        expect(ids).to eq([unassigned.id])
+        expect(ids).not_to include(to_user.id, to_group.id)
+      end
+
+      it 'is AND-combined with the include options (starting soon)' do
+        wanted       = make_issue(start_date: Date.current + 2)
+        assigned     = make_issue(start_date: Date.current + 2)
+        assigned.reload.update_column(:assigned_to_id, other_user.id)
+        later        = make_issue(start_date: Date.current + 20)
+        r = create(:issue_digest_rule, project: project, include_open: false,
+                   include_starting_soon: true, starting_soon_days: 7, filter_unassigned: true)
+        ids = described_class.new(r, user: user).resolve.map(&:id)
+        expect(ids).to eq([wanted.id])
+        expect(ids).not_to include(assigned.id, later.id)
+      end
+
+      it 'also narrows the candidate scope used for recipient discovery (user: nil)' do
+        unassigned = make_issue
+        make_issue.reload.update_column(:assigned_to_id, other_user.id)
+        r = create(:issue_digest_rule, project: project, include_open: true, filter_unassigned: true)
+        expect(described_class.new(r, user: nil).resolve.map(&:id)).to eq([unassigned.id])
+      end
+
+      it 'is ignored when unchecked' do
+        assigned = make_issue
+        assigned.reload.update_column(:assigned_to_id, other_user.id)
+        r = create(:issue_digest_rule, project: project, include_open: true, filter_unassigned: false)
+        expect(described_class.new(r, user: user).resolve.map(&:id)).to include(assigned.id)
+      end
+    end
+
     it 'returns recently updated issues' do
       recent = make_issue
       old = make_issue

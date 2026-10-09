@@ -156,6 +156,42 @@ RSpec.describe IssueDigestRule, type: :model do
       expect(build(:issue_digest_rule, recipient_modes: ['user:42'])).to be_valid
     end
 
+    it 'defaults the starting-soon and unassigned options to off, 7 days' do
+      rule = IssueDigestRule.new
+      expect(rule.include_starting_soon).to be(false)
+      expect(rule.starting_soon_days).to eq(7)
+      expect(rule.filter_unassigned).to be(false)
+    end
+
+    it 'rejects starting_soon_days outside 1..365' do
+      expect(build(:issue_digest_rule, starting_soon_days: 0)).not_to be_valid
+      expect(build(:issue_digest_rule, starting_soon_days: 366)).not_to be_valid
+      expect(build(:issue_digest_rule, starting_soon_days: 1)).to be_valid
+      expect(build(:issue_digest_rule, starting_soon_days: 365)).to be_valid
+    end
+
+    it 'accepts filter_unassigned with a specific user recipient' do
+      rule = build(:issue_digest_rule, filter_unassigned: true, recipient_modes: ['user:1'])
+      expect(rule).to be_valid
+    end
+
+    it 'rejects filter_unassigned combined with the assignees recipient mode' do
+      rule = build(:issue_digest_rule, filter_unassigned: true, recipient_modes: %w[project_members assignees])
+      expect(rule).not_to be_valid
+      expect(rule.errors.added?(:filter_unassigned, :filter_unassigned_conflict)).to be(true)
+    end
+
+    it 'rejects filter_unassigned combined with filter_assigned_to_recipient' do
+      rule = build(:issue_digest_rule, filter_unassigned: true, filter_assigned_to_recipient: true)
+      expect(rule).not_to be_valid
+      expect(rule.errors.added?(:filter_unassigned, :filter_unassigned_conflict)).to be(true)
+    end
+
+    it 'allows the assignees mode and filter_assigned_to_recipient when filter_unassigned is off' do
+      rule = build(:issue_digest_rule, recipient_modes: ['assignees'], filter_assigned_to_recipient: true)
+      expect(rule).to be_valid
+    end
+
     it 'accepts a valid IANA timezone' do
       expect(build(:issue_digest_rule, timezone: 'Europe/Brussels')).to be_valid
     end

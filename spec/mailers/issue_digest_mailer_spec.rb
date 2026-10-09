@@ -176,6 +176,40 @@ RSpec.describe IssueDigestMailer, type: :mailer do
   end
 
   # ------------------------------------------------------------------
+  # Start date column (always shown, whatever the rule's options)
+  # ------------------------------------------------------------------
+  describe 'start date column' do
+    let!(:started)  { make_issue(subject: 'Has a start', start_date: 3.days.from_now.to_date, due_date: 9.days.from_now.to_date) }
+    let!(:no_start) { make_issue(subject: 'No start') }
+    let(:header)    { I18n.t('redmine_mail_digest.mailer.column_start_date') }
+
+    it 'is shown for a rule without the starting-soon option' do
+      expect(rule.include_starting_soon).to be(false)
+      html = described_class.digest_email(rule, user, [started, no_start], nil).html_part.body.to_s
+      expect(html).to include("<th>#{header}</th>")
+    end
+
+    it 'renders the start date before the due date in the HTML row, and a dash when there is none' do
+      html = described_class.digest_email(rule, user, [started, no_start], nil).html_part.body.to_s
+      expect(html).to match(%r{<td>#{Regexp.escape(I18n.l(started.start_date))}</td>\s*<td class="[^"]*">#{Regexp.escape(I18n.l(started.due_date))}</td>})
+      expect(html.index("<th>#{header}</th>")).to be < html.index("<th>#{I18n.t('redmine_mail_digest.mailer.column_due_date')}</th>")
+      expect(html).to match(%r{<td>—</td>\s*<td class="[^"]*">—</td>})
+    end
+
+    it 'is shown in the grouped layout too' do
+      html = described_class.digest_email(rule, user, [started], { 'Group' => [started] }).html_part.body.to_s
+      expect(html).to include("<th>#{header}</th>")
+      expect(html).to include(I18n.l(started.start_date))
+    end
+
+    it 'adds a Start line to the text part, formatted like the due date' do
+      text = described_class.digest_email(rule, user, [started, no_start], nil).text_part.body.to_s
+      expect(text).to include("Start: #{I18n.l(started.start_date)}  Due: #{I18n.l(started.due_date)}")
+      expect(text).to include('Start: —  Due: —')
+    end
+  end
+
+  # ------------------------------------------------------------------
   # Text body
   # ------------------------------------------------------------------
   describe 'text body' do

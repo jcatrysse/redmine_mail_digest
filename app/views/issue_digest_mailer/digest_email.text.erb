@@ -23,7 +23,7 @@
 <% group_issues.each do |issue| %>
 #<%= issue.id %>  [<%= issue.tracker&.name %>]  <%= issue.subject %>
       Status: <%= issue.status&.name %>  Priority: <%= issue.priority&.name %>  Assignee: <%= format_assignee(issue) %>
-      Due: <%= format_due_date(issue) %>  Updated: <%= issue.updated_on&.strftime('%Y-%m-%d') %>
+      Start: <%= format_start_date(issue) %>  Due: <%= format_due_date(issue) %>  Updated: <%= issue.updated_on&.strftime('%Y-%m-%d') %>
       <%= digest_issue_url(issue) %>
 
 <% end %>
@@ -32,7 +32,7 @@
 <% @issues.each do |issue| %>
 #<%= issue.id %>  [<%= issue.tracker&.name %>]  <%= issue.subject %>
       Status: <%= issue.status&.name %>  Priority: <%= issue.priority&.name %>  Assignee: <%= format_assignee(issue) %>
-      Due: <%= format_due_date(issue) %>  Updated: <%= issue.updated_on&.strftime('%Y-%m-%d') %>
+      Start: <%= format_start_date(issue) %>  Due: <%= format_due_date(issue) %>  Updated: <%= issue.updated_on&.strftime('%Y-%m-%d') %>
       <%= digest_issue_url(issue) %>
 
 <% end %>

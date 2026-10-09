@@ -57,6 +57,7 @@ module IssueDigest
       scope = base_scope
       scope = apply_match_filters(scope)
       scope = apply_since_last_run_filter(scope)
+      scope = apply_unassigned_filter(scope)
       scope = apply_personalization_filters(scope)
       adapter = IssueDigest::QueryAdapter.new(@rule)
       scope   = adapter.apply_to(scope)
@@ -77,7 +78,7 @@ module IssueDigest
 
     # Inclusion ("Include …") filters are additive: every checked option ADDS
     # its matching issues to the digest, so they are OR-combined into a single
-    # WHERE clause. Status options (open/closed/overdue/due_soon) need the
+    # WHERE clause. Status options (open/closed/overdue/due_soon/starting_soon) need the
     # statuses join; the recency options (updated/created) reference the issues
     # table only. Leaving everything unchecked returns all project issues.
     #
@@ -89,6 +90,7 @@ module IssueDigest
       status_conditions << closed_condition   if @rule.include_closed?
       status_conditions << overdue_condition  if @rule.include_overdue?
       status_conditions << due_soon_condition if @rule.include_due_soon?
+      status_conditions << starting_soon_condition if @rule.include_starting_soon?
 
       conditions = status_conditions.dup
       conditions << recently_updated_condition if @rule.include_recently_updated?
@@ -115,6 +117,15 @@ module IssueDigest
       return scope if cutoff.nil?
 
       scope.where(conditions.join(' OR '), cutoff: cutoff)
+    end
+
+    # "Only unassigned issues": AND-combined narrowing to issues without an
+    # assignee. An issue assigned to a group is assigned, the same as Redmine's
+    # own "Assignee: none" filter.
+    def apply_unassigned_filter(scope)
+      return scope unless @rule.filter_unassigned?
+
+      scope.where(assigned_to_id: nil)
     end
 
     def apply_personalization_filters(scope)
@@ -199,6 +210,17 @@ module IssueDigest
         .and(issues[:due_date].not_eq(nil))
         .and(issues[:due_date].gteq(Date.current))
         .and(issues[:due_date].lteq(Date.current + days.days))
+    end
+
+    # Same date semantics as due_soon_condition, on start_date.
+    def starting_soon_condition
+      days = @rule.starting_soon_days.to_i
+      issues = Issue.arel_table
+      statuses = IssueStatus.arel_table
+      statuses[:is_closed].eq(false)
+        .and(issues[:start_date].not_eq(nil))
+        .and(issues[:start_date].gteq(Date.current))
+        .and(issues[:start_date].lteq(Date.current + days.days))
     end
 
     def recently_updated_condition

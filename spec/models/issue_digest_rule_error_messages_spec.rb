@@ -21,7 +21,8 @@ RSpec.describe IssueDigestRule, 'error messages' do
     'bad days of week'      => { schedule_type: 'weekdays', schedule_config: { 'days' => [9] } },
     'bad day of week'       => { schedule_type: 'weekly', schedule_config: { 'day' => 9 } },
     'bad day of month'      => { schedule_type: 'monthly_date', schedule_config: { 'day' => 31 } },
-    'bad interval'          => { schedule_type: 'interval_days', schedule_config: { 'every' => 0 } }
+    'bad interval'          => { schedule_type: 'interval_days', schedule_config: { 'every' => 0 } },
+    'unassigned + assignees' => { filter_unassigned: true, recipient_modes: ['assignees'] }
   }.freeze
 
   locales = Dir[File.expand_path('../../config/locales/*.yml', __dir__)].map { |f| File.basename(f, '.yml') }.sort

@@ -50,6 +50,8 @@ class IssueDigestRule < ApplicationRecord
   validates :group_by, inclusion: { in: GROUP_BY_OPTIONS }
   validates :due_soon_days,
             numericality: { only_integer: true, greater_than_or_equal_to: 1, less_than_or_equal_to: 365 }
+  validates :starting_soon_days,
+            numericality: { only_integer: true, greater_than_or_equal_to: 1, less_than_or_equal_to: 365 }
   validates :recently_updated_days,
             numericality: { only_integer: true, greater_than_or_equal_to: 1, less_than_or_equal_to: 365 }
   validates :recently_created_days,
@@ -62,6 +64,7 @@ class IssueDigestRule < ApplicationRecord
 
   validate :end_on_after_start_on
   validate :recipient_modes_valid
+  validate :filter_unassigned_compatible
   validate :schedule_config_valid
   validate :timezone_valid
   validate :query_belongs_to_project, if: :query_id_needs_validation?
@@ -205,6 +208,18 @@ class IssueDigestRule < ApplicationRecord
     return if modes.all? { |m| m.is_a?(String) && m.match?(RECIPIENT_MODE_PATTERN) }
 
     errors.add(:recipient_modes, :invalid)
+  end
+
+  # "Only unassigned issues" keeps issues with no assignee, so a recipient
+  # picked as assignee, or a digest limited to the recipient's assigned issues,
+  # could never receive anything. Refuse the combination instead of saving a
+  # rule that silently mails nothing.
+  def filter_unassigned_compatible
+    return unless filter_unassigned?
+    return unless filter_assigned_to_recipient? ||
+                  (recipient_modes.is_a?(Array) && recipient_modes.include?('assignees'))
+
+    errors.add(:filter_unassigned, :filter_unassigned_conflict)
   end
 
   def schedule_config_valid

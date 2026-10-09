@@ -339,6 +339,46 @@ RSpec.describe IssueDigestRulesController, type: :controller do
     end
   end
 
+  describe 'starting soon and unassigned options' do
+    it 'renders both options on the form with the 7-day default' do
+      get :new, params: { project_id: project.id }
+      expect(response.body).to include('id="issue_digest_rule_include_starting_soon"')
+      expect(response.body).to match(/id="issue_digest_rule_starting_soon_days"[^>]*value="7"|value="7"[^>]*id="issue_digest_rule_starting_soon_days"/)
+      expect(response.body).to include('id="issue_digest_rule_filter_unassigned"')
+      expect(response.body).to include("'issue_digest_rule_include_starting_soon',    'issue_digest_rule_starting_soon_days'")
+    end
+
+    it 'persists both options on create' do
+      post :create, params: { project_id: project.id,
+                              issue_digest_rule: valid_params.merge(include_starting_soon: '1', starting_soon_days: '14',
+                                                                    filter_unassigned: '1',
+                                                                    recipient_modes: ["user:#{user.id}"]) }
+      expect(response).to redirect_to(settings_project_path(project, tab: 'digest_rules'))
+      rule = IssueDigestRule.order(:id).last
+      expect(rule.include_starting_soon).to be(true)
+      expect(rule.starting_soon_days).to eq(14)
+      expect(rule.filter_unassigned).to be(true)
+    end
+
+    it 'refuses unassigned with the assignees recipient mode and shows why' do
+      expect {
+        post :create, params: { project_id: project.id,
+                                issue_digest_rule: valid_params.merge(filter_unassigned: '1',
+                                                                      recipient_modes: ['assignees']) }
+      }.not_to change(IssueDigestRule, :count)
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t('activerecord.errors.messages.filter_unassigned_conflict')))
+    end
+
+    it 'shows both options in the rule summary' do
+      rule = create(:issue_digest_rule, project: project, created_by: user, include_starting_soon: true,
+                    starting_soon_days: 5, filter_unassigned: true, recipient_modes: ["user:#{user.id}"])
+      get :show, params: { project_id: project.id, id: rule.id }
+      expect(response.body).to include(I18n.t(:filter_starting_soon_summary, days: 5))
+      expect(response.body).to include(I18n.t(:field_filter_unassigned))
+    end
+  end
+
   describe 'GET #edit' do
     it 'renders successfully' do
       rule = create(:issue_digest_rule, project: project, created_by: user)

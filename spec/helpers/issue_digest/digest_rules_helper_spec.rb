@@ -237,6 +237,16 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
       expect(helper.filter_summary(rule)).to include('5')
     end
 
+    it 'includes the starting-soon summary with the day count' do
+      rule = build_rule(include_open: false, include_starting_soon: true, starting_soon_days: 9)
+      expect(helper.filter_summary(rule)).to eq(I18n.t(:filter_starting_soon_summary, days: 9))
+    end
+
+    it 'leaves the starting-soon summary out when the option is off' do
+      rule = build_rule(include_open: true, include_starting_soon: false, starting_soon_days: 9)
+      expect(helper.filter_summary(rule)).not_to include(I18n.t(:filter_starting_soon_summary, days: 9))
+    end
+
     it 'includes the recently-updated summary with the day count' do
       rule = build_rule(include_open: false, include_recently_updated: true, recently_updated_days: 14)
       expect(helper.filter_summary(rule)).to include('14')
@@ -289,6 +299,11 @@ RSpec.describe IssueDigest::DigestRulesHelper, type: :helper do
     it 'returns the watched-by label when filter_watched_by_recipient is true' do
       rule = build_rule(filter_watched_by_recipient: true)
       expect(helper.personalization_summary(rule)).to include(I18n.t(:field_filter_watched_by_recipient))
+    end
+
+    it 'returns the unassigned label when filter_unassigned is true' do
+      rule = build_rule(filter_unassigned: true)
+      expect(helper.personalization_summary(rule)).to eq(I18n.t(:field_filter_unassigned))
     end
 
     it 'joins multiple active personalization flags with a comma' do
