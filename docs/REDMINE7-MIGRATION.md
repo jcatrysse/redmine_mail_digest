@@ -55,7 +55,7 @@ Choices made in this session (Jan was not watching), with the reason:
 | `main` (Redmine 5.1) | cherry-pick of `34fc40c` as `9a2b4d2` on `e734469` (fast-forward). Conflicts: the locales (no `activerecord.errors` section on `main`: only the new message added there) and `spec/models/issue_digest_rule_error_messages_spec.rb` (not on `main`: replaced by a per-locale check of the new message in `issue_digest_rule_spec.rb`). The e2e commit stays on this branch, it needs the `.codex/e2e` tooling |
 | rspec, Redmine 5.1-stable, Ruby 3.2.6, PostgreSQL 16 | 478 examples, 0 failures (440 before + 38 new); without the change 31 fail |
 | e2e on Redmine 5.1 running `main` + the feature | the same scenario: 8 screenshots, 0 problems, looked at, in `docs/e2e/redmine51/starting-soon-unassigned*` |
-| push of `main` | **not done**: refused by the session's permission check; `9a2b4d2` exists only in the session container. Needs Jan's go, or redo the cherry-pick as described above |
+| push of `main` | done on Jan's go (2026-10-09): `origin/main` fast-forwarded `e734469..9a2b4d2` |
 
 Not updated: the design documents under `docs/spec/` (data model, UI spec) still describe the
 rule without the two options.
