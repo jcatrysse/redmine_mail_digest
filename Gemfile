@@ -6,7 +6,7 @@
 # Only declare the gems the plugin's own test suite needs; runtime
 # dependencies come from Redmine itself.
 group :test do
-  gem 'rspec-rails'
-  gem 'factory_bot_rails'
-  gem 'rails-controller-testing'
+  gem 'rspec-rails' unless dependencies.any? { |d| d.name == 'rspec-rails' }
+  gem 'factory_bot_rails' unless dependencies.any? { |d| d.name == 'factory_bot_rails' }
+  gem 'rails-controller-testing' unless dependencies.any? { |d| d.name == 'rails-controller-testing' }
 end
