@@ -226,7 +226,11 @@ Answered 2026-10-06 ("1: advies volgen, 2 en 3 bouwen"):
 
 ## Open questions for Jan
 
-None.
+1. (2026-10-14) `main` on Redmine 5.1 keeps writing YAML into `schedule_config` and
+   `recipient_modes` (Rails 6.1 ignores `coder: JSON`). Migration 012 on this branch converts
+   those rows at the upgrade, so nothing is needed on `main`. Option: make `main` write JSON now
+   too (`serialize :col, JSON` works on 6.1 and 7.1+), which would also need a conversion on
+   `main` for the existing rows. Recommendation: leave `main` as is; 012 covers it.
 
 ## GEOxyz changes to review or re-apply
 
@@ -243,6 +247,16 @@ Actions the person doing the upgrade must take, or know about, for this plugin:
   `main`. Run `RAILS_ENV=production bundle exec rake redmine:plugins:migrate` once; existing
   rules keep their behaviour (defaults off, 7 days). Rollback:
   `rake redmine:plugins:migrate NAME=redmine_mail_digest VERSION=10`.
+- **Migration 012 converts the rules saved on Redmine 5.1 from YAML to JSON. It is required.**
+  On Rails 6.1 `serialize :col, coder: JSON` ignores `coder:` and stores YAML (measured on
+  5.1: `--- !ruby/hash:ActiveSupport::HashWithIndifferentAccess` for `schedule_config`, a YAML
+  list for `recipient_modes`); Redmine 7 reads JSON. Without 012 every page listing a 5.1 rule
+  answers 500 (`JSON::ParserError`) and the cron skips the rules as invalid while exiting 0.
+  The same `redmine:plugins:migrate` runs it; it prints one line per converted rule, leaves JSON
+  values alone (safe to run twice) and its `down` is a no-op (JSON is valid YAML, so 5.1 still
+  reads the converted rows). Rehearsed on a copy of a 5.1 database with a form-saved rule:
+  before 012 four rule pages 500, after 012 200 and the rule valid with a planned send.
+  After the upgrade check: `RAILS_ENV=production bundle exec rails runner 'IssueDigestRule.find_each { |r| puts [r.id, r.valid?].inspect }'`.
 - Behaviour that changes for users: a "Digest Rules" entry in the project menu for roles with
   *view digest rules*; roles with *manage digest rules* can open the project settings (only the
   tabs their permissions allow); rules with e-mail address recipients stop mailing those
