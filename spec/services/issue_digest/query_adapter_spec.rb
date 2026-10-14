@@ -8,6 +8,15 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
     allow_any_instance_of(Issue).to receive(:add_auto_watcher)
   end
 
+  # Stub #statement on this query object, and make the adapter's lookup return
+  # that same object. Not allow_any_instance_of(IssueQuery): rspec-mocks
+  # refuses it when another plugin prepends #statement (redmineup_tags does).
+  def stub_statement(query)
+    allow(IssueQuery).to receive(:find_by).and_call_original
+    allow(IssueQuery).to receive(:find_by).with(id: query.id).and_return(query)
+    allow(query).to receive(:statement)
+  end
+
   let!(:role)    { Role.create!(name: "QARole_#{SecureRandom.hex(4)}", permissions: [:view_issues]) }
   let!(:project) { create(:project, is_public: true) }
   let!(:other_project) { create(:project, is_public: false) }
@@ -108,7 +117,7 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         user: author
       )
       rule.update_column(:query_id, bad_query.id)
-      allow_any_instance_of(IssueQuery).to receive(:statement).and_raise(StandardError, 'boom')
+      stub_statement(bad_query).and_raise(StandardError, 'boom')
       scope = Issue.all
       expect(Rails.logger).to receive(:warn).with(/query adapter error/)
       expect(described_class.new(rule).apply_to(scope).to_sql).to eq(scope.to_sql)
@@ -122,7 +131,7 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         user: author
       )
       rule = build(:issue_digest_rule, project: project, query: empty_query)
-      allow_any_instance_of(IssueQuery).to receive(:statement).and_return('')
+      stub_statement(empty_query).and_return('')
       scope = Issue.all
       expect(described_class.new(rule).apply_to(scope).to_sql).to eq(scope.to_sql)
     end
@@ -180,7 +189,7 @@ RSpec.describe IssueDigest::QueryAdapter, type: :service do
         user: author
       )
       rule = build(:issue_digest_rule, project: project, query: bad_query)
-      allow_any_instance_of(IssueQuery).to receive(:statement).and_raise(StandardError, 'oops')
+      stub_statement(bad_query).and_raise(StandardError, 'oops')
       adapter = described_class.new(rule)
       expect(Rails.logger).to receive(:warn).with(/query adapter error/)
       adapter.apply_to(Issue.all)
