@@ -47,8 +47,10 @@ RSpec.configure do |config|
 
   # When tests run against an existing Redmine installation, Redmine's own
   # notification callbacks on Issue fire real SMTP deliveries. Force test
-  # delivery mode and suppress the per-issue send_notification callback so
-  # create(:issue) never touches a real mail server.
+  # delivery mode and suppress the "issue added" notification so
+  # create(:issue) never touches a real mail server. Stubbed at the mailer,
+  # not on Issue#send_notification: rspec-mocks refuses any_instance stubs of
+  # a method another plugin prepends (redmine_stealth does).
   config.before(:each) do
     # Redmine's migrations create the builtin groups and the "Non member" role
     # with view_issues; a test database loaded from schema.rb has neither, and
@@ -61,6 +63,6 @@ RSpec.configure do |config|
     ActionMailer::Base.delivery_method   = :test
     ActionMailer::Base.perform_deliveries = true
     ActionMailer::Base.deliveries.clear
-    allow_any_instance_of(Issue).to receive(:send_notification)
+    allow(Mailer).to receive(:deliver_issue_add)
   end
 end
