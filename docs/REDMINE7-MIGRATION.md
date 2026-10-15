@@ -224,13 +224,13 @@ Answered 2026-10-06 ("1: advies volgen, 2 en 3 bouwen"):
    pages mark them "not sent". Built in `1bf128c`. Addresses still reach only registered users
    who may see the project's issues, which for a public project includes non-members.
 
+- 2026-10-15: `main` (Redmine 5.1) keeps writing YAML into `schedule_config` and
+  `recipient_modes`; no change on `main`. Migration 012 converts those rows to JSON at the
+  upgrade to Redmine 7.
+
 ## Open questions for Jan
 
-1. (2026-10-14) `main` on Redmine 5.1 keeps writing YAML into `schedule_config` and
-   `recipient_modes` (Rails 6.1 ignores `coder: JSON`). Migration 012 on this branch converts
-   those rows at the upgrade, so nothing is needed on `main`. Option: make `main` write JSON now
-   too (`serialize :col, JSON` works on 6.1 and 7.1+), which would also need a conversion on
-   `main` for the existing rows. Recommendation: leave `main` as is; 012 covers it.
+None.
 
 ## GEOxyz changes to review or re-apply
 
