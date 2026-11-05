@@ -311,7 +311,7 @@ bundle exec rspec plugins/redmine_mail_digest/spec
 
 GitHub Actions workflows are provided:
 
-- `.github/workflows/rspec-70.yml` — Redmine 7.0 (`7.0-stable-GEOxyz`), Ruby 3.3, PostgreSQL 16
+- `.github/workflows/rspec-70.yml` — Redmine 7.0 (`7.0-stable-GEOxyz`), Ruby 4.0, PostgreSQL 16
 - `.github/workflows/rspec-61.yml` — Redmine 6.1, Ruby 3.3, PostgreSQL 16
 - `.github/workflows/rspec-60.yml` — Redmine 6.0, PostgreSQL 16
 - `.github/workflows/rspec-mysql.yml` — MySQL 8.0
